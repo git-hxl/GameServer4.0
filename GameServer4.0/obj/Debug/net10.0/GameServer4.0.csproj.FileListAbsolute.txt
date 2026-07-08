@@ -1,0 +1,14 @@
+/Users/hxl/Works/GameServer4.0/GameServer4.0/bin/Debug/net10.0/GameServer4.0
+/Users/hxl/Works/GameServer4.0/GameServer4.0/bin/Debug/net10.0/GameServer4.0.deps.json
+/Users/hxl/Works/GameServer4.0/GameServer4.0/bin/Debug/net10.0/GameServer4.0.runtimeconfig.json
+/Users/hxl/Works/GameServer4.0/GameServer4.0/bin/Debug/net10.0/GameServer4.0.dll
+/Users/hxl/Works/GameServer4.0/GameServer4.0/bin/Debug/net10.0/GameServer4.0.pdb
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.GeneratedMSBuildEditorConfig.editorconfig
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.AssemblyInfoInputs.cache
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.AssemblyInfo.cs
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.csproj.CoreCompileInputs.cache
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.dll
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/refint/GameServer4.0.dll
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.pdb
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/GameServer4.0.genruntimeconfig.cache
+/Users/hxl/Works/GameServer4.0/GameServer4.0/obj/Debug/net10.0/ref/GameServer4.0.dll
