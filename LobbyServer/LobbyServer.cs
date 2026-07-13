@@ -94,7 +94,7 @@ public class LobbyServer
                 case MessageIds.Chat:
                     var chatReq = MessagePackSerializer.Deserialize<ChatRequest>(payload);
                     if (chatReq != null)
-                        _lobbyManager.Chat(chatReq);
+                        _lobbyManager.Chat(peer, chatReq);
                     break;
 
                 default:

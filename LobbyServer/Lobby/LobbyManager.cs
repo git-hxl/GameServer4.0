@@ -4,6 +4,7 @@ using MessagePack;
 using Serilog;
 using SharedLib.Models;
 using SharedLib.Protocol;
+using System.Collections.Concurrent;
 
 namespace LobbyServer.Lobby;
 
@@ -13,7 +14,7 @@ namespace LobbyServer.Lobby;
 public class LobbyManager
 {
     private readonly NetManager _netManager;
-    private readonly Dictionary<long, NetPeer> _users = new();
+    private readonly ConcurrentDictionary<long, NetPeer> _users = new();
 
     public int UserCount => _users.Count;
 
@@ -45,7 +46,7 @@ public class LobbyManager
     /// </summary>
     public void Leave(NetPeer peer, LeaveLobbyRequest request)
     {
-        _users.Remove(request.UserId);
+        _users.TryRemove(request.UserId, out _);
 
         Log.Information("大厅离开 userId={UserId} 在线人数={Count}",
             request.UserId, _users.Count);
@@ -58,10 +59,16 @@ public class LobbyManager
     }
 
     /// <summary>
-    /// 聊天消息：全大厅广播
+    /// 聊天消息：全大厅广播（需已加入大厅）
     /// </summary>
-    public void Chat(ChatRequest request)
+    public void Chat(NetPeer peer, ChatRequest request)
     {
+        if (!_users.ContainsKey(request.UserId))
+        {
+            Log.Warning("聊天拒绝 userId={UserId} 未加入大厅", request.UserId);
+            return;
+        }
+
         Log.Information("聊天 userId={UserId} nickname={Nickname}: {Content}",
             request.UserId, request.Nickname, request.Content);
 
@@ -78,11 +85,11 @@ public class LobbyManager
     /// </summary>
     public void RemoveByPeer(NetPeer peer)
     {
-        var userId = _users.FirstOrDefault(kv => kv.Value == peer).Key;
-        if (userId > 0)
+        var kv = _users.FirstOrDefault(kv => kv.Value == peer);
+        if (kv.Value != null)
         {
-            _users.Remove(userId);
-            Log.Information("用户断线清理 userId={UserId} 在线人数={Count}", userId, _users.Count);
+            _users.TryRemove(kv.Key, out _);
+            Log.Information("用户断线清理 userId={UserId} 在线人数={Count}", kv.Key, _users.Count);
         }
     }
 
@@ -98,7 +105,7 @@ public class LobbyManager
     }
 
     /// <summary>
-    /// 广播消息给所有连接的对端
+    /// 广播消息给所有大厅内用户
     /// </summary>
     private void Broadcast(ushort messageId, object data)
     {
@@ -106,6 +113,9 @@ public class LobbyManager
         writer.Put(messageId);
         writer.Put(MessagePackSerializer.Serialize(data));
 
-        _netManager.SendToAll(writer, DeliveryMethod.ReliableOrdered);
+        foreach (var peer in _users.Values)
+        {
+            peer.Send(writer, DeliveryMethod.ReliableOrdered);
+        }
     }
 }
