@@ -9,6 +9,9 @@
 
     <ItemGroup>
         <ProjectReference Include="..\SharedLib\SharedLib.csproj"/>
+        <None Update="server_config.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>

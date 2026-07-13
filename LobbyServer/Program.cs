@@ -1,4 +1,5 @@
 ﻿using Serilog;
+using SharedLib.Config;
 
 Log.Logger = new LoggerConfiguration().WriteTo.Console().WriteTo.File("log.txt",
     rollingInterval: RollingInterval.Day,
@@ -6,10 +7,11 @@ Log.Logger = new LoggerConfiguration().WriteTo.Console().WriteTo.File("log.txt",
 
 Log.Information("Starting up");
 
-var server = new LobbyServer.LobbyServer();
-server.Start(9050);
+var settings = ConfigLoader.Load<ServerSettings>();
+var server = new LobbyServer.LobbyServer(settings.Network);
+server.Start(settings.Server.Port);
 
-using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(30));
+using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(settings.Network.UpdateTime));
 
 while (await timer.WaitForNextTickAsync())
 {
