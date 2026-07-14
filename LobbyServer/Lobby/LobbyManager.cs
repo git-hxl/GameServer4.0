@@ -1,16 +1,13 @@
+using System.Collections.Concurrent;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using MessagePack;
 using Serilog;
 using SharedLib.Models;
 using SharedLib.Protocol;
-using System.Collections.Concurrent;
 
 namespace LobbyServer.Lobby;
 
-/// <summary>
-/// 大厅用户管理 + 消息广播
-/// </summary>
 public class LobbyManager
 {
     private readonly NetManager _netManager;
@@ -23,27 +20,19 @@ public class LobbyManager
         _netManager = netManager;
     }
 
-    /// <summary>
-    /// 加入大厅
-    /// </summary>
     public void Join(NetPeer peer, JoinLobbyRequest request)
     {
-        _users[request.UserId] = peer;
+        _users[request.Player.UserId] = peer;
 
         Log.Information("大厅加入 userId={UserId} nickname={Nickname} 在线人数={Count}",
-            request.UserId, request.Nickname, _users.Count);
+            request.Player.UserId, request.Player.Nickname, _users.Count);
 
-        // 回复自己
-        Send(peer, MessageIds.JoinLobby, new JoinLobbyResponse
+        Send(peer, MessageIds.JoinLobby, ReturnCode.Success, new JoinLobbyResponse
         {
-            UserId = request.UserId,
-            Nickname = request.Nickname
+            Player = request.Player
         });
     }
 
-    /// <summary>
-    /// 离开大厅
-    /// </summary>
     public void Leave(NetPeer peer, LeaveLobbyRequest request)
     {
         _users.TryRemove(request.UserId, out _);
@@ -51,16 +40,12 @@ public class LobbyManager
         Log.Information("大厅离开 userId={UserId} 在线人数={Count}",
             request.UserId, _users.Count);
 
-        // 回复自己
-        Send(peer, MessageIds.LeaveLobby, new LeaveLobbyResponse
+        Send(peer, MessageIds.LeaveLobby, ReturnCode.Success, new LeaveLobbyResponse
         {
             UserId = request.UserId
         });
     }
 
-    /// <summary>
-    /// 聊天消息：全大厅广播（需已加入大厅）
-    /// </summary>
     public void Chat(NetPeer peer, ChatRequest request)
     {
         if (!_users.ContainsKey(request.UserId))
@@ -72,7 +57,7 @@ public class LobbyManager
         Log.Information("聊天 userId={UserId} nickname={Nickname}: {Content}",
             request.UserId, request.Nickname, request.Content);
 
-        Broadcast(MessageIds.ChatNotify, new ChatNotify
+        Broadcast(MessageIds.ChatNotify, ReturnCode.Success, new ChatNotify
         {
             UserId = request.UserId,
             Nickname = request.Nickname,
@@ -80,9 +65,6 @@ public class LobbyManager
         });
     }
 
-    /// <summary>
-    /// 用户断开时清理
-    /// </summary>
     public void RemoveByPeer(NetPeer peer)
     {
         var kv = _users.FirstOrDefault(kv => kv.Value == peer);
@@ -93,24 +75,20 @@ public class LobbyManager
         }
     }
 
-    /// <summary>
-    /// 发送消息给指定 Peer（MessageId + MessagePack 序列化）
-    /// </summary>
-    private void Send(NetPeer peer, ushort messageId, object data)
+    private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();
         writer.Put(messageId);
+        writer.Put((byte)code);
         writer.Put(MessagePackSerializer.Serialize(data));
         peer.Send(writer, DeliveryMethod.ReliableOrdered);
     }
 
-    /// <summary>
-    /// 广播消息给所有大厅内用户
-    /// </summary>
-    private void Broadcast(ushort messageId, object data)
+    private void Broadcast(ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();
         writer.Put(messageId);
+        writer.Put((byte)code);
         writer.Put(MessagePackSerializer.Serialize(data));
 
         foreach (var peer in _users.Values)

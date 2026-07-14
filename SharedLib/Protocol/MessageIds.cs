@@ -12,4 +12,12 @@ public static class MessageIds
 
     // GameServer 内部通信
     public const ushort GameServerRegister = 100;
+    public const ushort GameServerHeartbeat = 101;
+
+    // 房间
+    public const ushort CreateRoom = 10;
+    public const ushort JoinRoom = 11;
+    public const ushort LeaveRoom = 12;
+    public const ushort JoinRoomNotify = 13;
+    public const ushort RoomList = 14;
 }

@@ -5,6 +5,7 @@ using Serilog;
 using SharedLib.Config;
 using SharedLib.Models;
 using SharedLib.Protocol;
+using SharedLib.Utils;
 
 namespace GameServer;
 
@@ -25,6 +26,9 @@ public class GameServer
     private readonly string _lobbyAddress;
     private readonly int _lobbyPort;
     private readonly int _serverPort;
+
+    private CancellationTokenSource _heartbeatCts = new();
+    private readonly PerformanceMonitor _perf = new();
 
     public GameServer(GameServerConfig config)
     {
@@ -68,12 +72,17 @@ public class GameServer
         _lobbyClient.Start();
         _lobbyClient.Connect(_lobbyAddress, _lobbyPort, _connectionKey);
 
+        // ── 心跳 ──
+        _heartbeatCts = new CancellationTokenSource();
+        _ = HeartbeatLoop(_heartbeatCts.Token);
+
         Log.Information("GameServer 启动 端口 {Port}, 连接 Lobby {Addr}:{LobbyPort}",
             _serverPort, _lobbyAddress, _lobbyPort);
     }
 
     public void Stop()
     {
+        _heartbeatCts.Cancel();
         if (_lobbyPeer != null)
             _lobbyClient.DisconnectPeer(_lobbyPeer);
         _lobbyClient.Stop();
@@ -120,6 +129,7 @@ public class GameServer
 
         var writer = new NetDataWriter();
         writer.Put(MessageIds.GameServerRegister);
+        writer.Put((byte)0);
         writer.Put(MessagePackSerializer.Serialize(new GameServerRegisterRequest
         {
             Port = _serverPort,
@@ -140,5 +150,45 @@ public class GameServer
     {
         Log.Information("LobbyServer 消息 {ByteCount} 字节", reader.AvailableBytes);
         reader.Recycle();
+    }
+
+    // ── 心跳 ─────────────────────────────────────────────────────────
+
+    private async Task HeartbeatLoop(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(5000, token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            _perf.Update();
+
+            if (_lobbyPeer?.ConnectionState == ConnectionState.Connected)
+            {
+                SendHeartbeat();
+            }
+        }
+    }
+
+    private void SendHeartbeat()
+    {
+        var writer = new NetDataWriter();
+        writer.Put(MessageIds.GameServerHeartbeat);
+        writer.Put((byte)0);
+        writer.Put(MessagePackSerializer.Serialize(new GameServerHeartbeatRequest
+        {
+            Port = _serverPort,
+            PlayerCount = 0,
+            RoomCount = 0,
+            CpuPercent = _perf.CpuPercent,
+            MemoryMB = _perf.MemoryMB
+        }));
+        _lobbyPeer!.Send(writer, DeliveryMethod.ReliableOrdered);
     }
 }

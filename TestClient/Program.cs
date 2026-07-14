@@ -9,7 +9,14 @@ using SharedLib.Protocol;
 const int ServerPort = 9050;
 const string ConnectionKey = "Game@wasd9527";
 var userId = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-var nickname = $"Test_{userId % 10000}";
+var player = new PlayerInfo
+{
+    UserId = userId,
+    Nickname = $"Test_{userId % 10000}",
+    Gender = 1,
+    Avatar = "default.png",
+    Age = 20
+};
 
 // ── 初始化日志 ───────────────────────────────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -19,7 +26,7 @@ Log.Logger = new LoggerConfiguration()
         rollOnFileSizeLimit: true)
     .CreateLogger();
 
-Log.Information("TestClient 启动, userId={UserId} nickname={Nickname}", userId, nickname);
+Log.Information("TestClient 启动, userId={UserId} nickname={Nickname}", userId, player.Nickname);
 
 // ── 创建 LiteNetLib 客户端 ───────────────────────────────────────────
 var listener = new EventBasedNetListener();
@@ -43,25 +50,72 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
     try
     {
         var messageId = reader.GetUShort();
+        var code      = reader.GetByte();
         var payload   = reader.GetRemainingBytes();
 
         switch (messageId)
         {
             case MessageIds.JoinLobby:
                 var joinRes = MessagePackSerializer.Deserialize<JoinLobbyResponse>(payload);
-                Log.Information("[JoinLobby] 加入成功 userId={UserId} nickname={Nickname}",
-                    joinRes?.UserId, joinRes?.Nickname);
+                Log.Information("[JoinLobby] {Code} userId={UserId} nickname={Nickname}",
+                    code, joinRes?.Player.UserId, joinRes?.Player.Nickname);
                 break;
 
             case MessageIds.LeaveLobby:
                 var leaveRes = MessagePackSerializer.Deserialize<LeaveLobbyResponse>(payload);
-                Log.Information("[LeaveLobby] 已离开 userId={UserId}", leaveRes?.UserId);
+                Log.Information("[LeaveLobby] {Code} userId={UserId}", code, leaveRes?.UserId);
                 break;
 
             case MessageIds.ChatNotify:
                 var chatNotify = MessagePackSerializer.Deserialize<ChatNotify>(payload);
                 Log.Information("[Chat] {Nickname}: {Content}",
                     chatNotify?.Nickname, chatNotify?.Content);
+                break;
+
+            case MessageIds.CreateRoom:
+                var createRes = MessagePackSerializer.Deserialize<CreateRoomResponse>(payload);
+                if (code == 0)
+                    Log.Information("[房间] 创建成功 roomId={RoomId} GameServer={Addr}:{Port}",
+                        createRes?.RoomId, createRes?.GameServerAddress, createRes?.GameServerPort);
+                else
+                    Log.Warning("[房间] 创建失败");
+                break;
+
+            case MessageIds.JoinRoom:
+                var joinRoomRes = MessagePackSerializer.Deserialize<JoinRoomResponse>(payload);
+                if (code == 0)
+                    Log.Information("[房间] 加入成功 roomId={RoomId} GameServer={Addr}:{Port}",
+                        joinRoomRes?.RoomId, joinRoomRes?.GameServerAddress, joinRoomRes?.GameServerPort);
+                else
+                    Log.Warning("[房间] 加入失败 roomId={RoomId}", joinRoomRes?.RoomId);
+                break;
+
+            case MessageIds.LeaveRoom:
+                var leaveRoomRes = MessagePackSerializer.Deserialize<LeaveRoomResponse>(payload);
+                if (code == 0)
+                    Log.Information("[房间] 已离开 roomId={RoomId}", leaveRoomRes?.RoomId);
+                else
+                    Log.Warning("[房间] 离开失败");
+                break;
+
+            case MessageIds.JoinRoomNotify:
+                var joinNotify = MessagePackSerializer.Deserialize<JoinRoomNotify>(payload);
+                Log.Information("[房间] {Nickname}({UserId}) 加入了房间 {RoomId}",
+                    joinNotify?.Player.Nickname, joinNotify?.Player.UserId, joinNotify?.RoomId);
+                break;
+
+            case MessageIds.RoomList:
+                var roomList = MessagePackSerializer.Deserialize<RoomListResponse>(payload);
+                if (roomList?.Rooms.Count > 0)
+                {
+                    Log.Information("[房间列表]");
+                    foreach (var r in roomList.Rooms)
+                        Log.Information("  {RoomId} 类型={Type} 人数={Count}", r.RoomId, r.RoomType, r.PlayerCount);
+                }
+                else
+                {
+                    Log.Information("[房间列表] 空");
+                }
                 break;
 
             default:
@@ -101,6 +155,7 @@ void SendMessage(ushort messageId, object data)
 
     var writer = new NetDataWriter();
     writer.Put(messageId);
+    writer.Put((byte)0);
     writer.Put(MessagePackSerializer.Serialize(data));
     peer.Send(writer, DeliveryMethod.ReliableOrdered);
 }
@@ -110,7 +165,7 @@ using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(15));
 var cts       = new CancellationTokenSource();
 var quitFlag  = false;
 
-Log.Information("命令: join | leave | chat <内容> | status | quit");
+Log.Information("命令: joinl | leavel | chat <内容> | create | joinr <roomId> | leaver | rooms | status | quit");
 
 _ = Task.Run(async () =>
 {
@@ -125,19 +180,39 @@ _ = Task.Run(async () =>
 
         switch (cmd)
         {
-            case "join":
-                SendMessage(MessageIds.JoinLobby, new JoinLobbyRequest
-                {
-                    UserId = userId,
-                    Nickname = nickname
-                });
+            case "joinl":
+                SendMessage(MessageIds.JoinLobby, new JoinLobbyRequest { Player = player });
                 break;
 
-            case "leave":
+            case "leavel":
                 SendMessage(MessageIds.LeaveLobby, new LeaveLobbyRequest
                 {
                     UserId = userId
                 });
+                break;
+
+            case "create":
+                SendMessage(MessageIds.CreateRoom, new CreateRoomRequest());
+                break;
+
+            case "joinr":
+                if (parts.Length < 2)
+                {
+                    Log.Information("用法: joinr <RoomId>");
+                    break;
+                }
+                SendMessage(MessageIds.JoinRoom, new JoinRoomRequest
+                {
+                    RoomId = parts[1]
+                });
+                break;
+
+            case "leaver":
+                SendMessage(MessageIds.LeaveRoom, new LeaveRoomRequest());
+                break;
+
+            case "rooms":
+                SendMessage(MessageIds.RoomList, new RoomListRequest());
                 break;
 
             case "chat":
@@ -149,7 +224,7 @@ _ = Task.Run(async () =>
                 SendMessage(MessageIds.Chat, new ChatRequest
                 {
                     UserId = userId,
-                    Nickname = nickname,
+                    Nickname = player.Nickname,
                     Content = parts[1]
                 });
                 break;
