@@ -207,7 +207,7 @@ public class LobbyServer
 
                 case MessageIds.RoomList:
                     var roomListRes = _roomManager.GetRoomList();
-                    Send(peer, MessageIds.RoomList, 0, roomListRes);
+                    Send(peer, MessageIds.RoomList, ReturnCode.Success, roomListRes);
                     break;
 
                 default:

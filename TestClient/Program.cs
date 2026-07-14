@@ -84,8 +84,16 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
             case MessageIds.JoinRoom:
                 var joinRoomRes = MessagePackSerializer.Deserialize<JoinRoomResponse>(payload);
                 if (code == 0)
-                    Log.Information("[房间] 加入成功 roomId={RoomId} GameServer={Addr}:{Port}",
-                        joinRoomRes?.RoomId, joinRoomRes?.GameServerAddress, joinRoomRes?.GameServerPort);
+                {
+                    Log.Information("[房间] 加入成功 roomId={RoomId} GameServer={Addr}:{Port} 房主={Owner}",
+                        joinRoomRes?.RoomId, joinRoomRes?.GameServerAddress, joinRoomRes?.GameServerPort, joinRoomRes?.OwnerUserId);
+                    if (joinRoomRes?.Players is { Count: > 0 })
+                    {
+                        Log.Information("[房间] 现有成员:");
+                        foreach (var p in joinRoomRes.Players)
+                            Log.Information("  {Nickname}({UserId})", p.Nickname, p.UserId);
+                    }
+                }
                 else
                     Log.Warning("[房间] 加入失败 roomId={RoomId}", joinRoomRes?.RoomId);
                 break;
@@ -155,7 +163,7 @@ void SendMessage(ushort messageId, object data)
 
     var writer = new NetDataWriter();
     writer.Put(messageId);
-    writer.Put((byte)0);
+    writer.Put((byte)ReturnCode.Success);
     writer.Put(MessagePackSerializer.Serialize(data));
     peer.Send(writer, DeliveryMethod.ReliableOrdered);
 }

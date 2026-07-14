@@ -20,7 +20,7 @@ public class GameServer
     // 连接 LobbyServer 的客户端
     private readonly NetManager _lobbyClient;
     private readonly EventBasedNetListener _lobbyListener;
-    private NetPeer? _lobbyPeer;
+    private volatile NetPeer? _lobbyPeer;
 
     private readonly string _connectionKey;
     private readonly string _lobbyAddress;
@@ -156,7 +156,7 @@ public class GameServer
 
         var writer = new NetDataWriter();
         writer.Put(MessageIds.GameServerRegister);
-        writer.Put((byte)0);
+        writer.Put((byte)ReturnCode.Success);
         writer.Put(MessagePackSerializer.Serialize(new GameServerRegisterRequest
         {
             Port = _serverPort,
@@ -219,7 +219,7 @@ public class GameServer
     {
         var writer = new NetDataWriter();
         writer.Put(MessageIds.GameServerHeartbeat);
-        writer.Put((byte)0);
+        writer.Put((byte)ReturnCode.Success);
         writer.Put(MessagePackSerializer.Serialize(new GameServerHeartbeatRequest
         {
             Port = _serverPort,

@@ -48,6 +48,7 @@ public class RoomManager
             RoomId = roomId,
             RoomType = request.RoomType,
             GameServerPeer = gsValue.Key,
+            OwnerPeer = peer,
             Players = new Dictionary<NetPeer, PlayerInfo> { { peer, player } }
         };
         _rooms[roomId] = room;
@@ -85,6 +86,7 @@ public class RoomManager
         room.Players[peer] = player;
 
         var gs = GameServers[room.GameServerPeer];
+        var ownerUserId = room.Players.GetValueOrDefault(room.OwnerPeer!)?.UserId ?? 0;
 
         var notify = new JoinRoomNotify { RoomId = request.RoomId, Player = player };
         foreach (var otherPeer in room.Players.Keys.Where(p => p != peer))
@@ -98,13 +100,23 @@ public class RoomManager
         {
             RoomId = request.RoomId,
             GameServerAddress = gs.Address,
-            GameServerPort = gs.Port
+            GameServerPort = gs.Port,
+            Players = room.Players.Values.ToList(),
+            OwnerUserId = ownerUserId
         }, ReturnCode.Success);
     }
 
     /// <summary>
     /// 玩家离开当前所在房间，房间为空时自动删除
     /// </summary>
+    private void ReassignOwner(GameServerRoom room)
+    {
+        if (room.OwnerPeer == null || !room.Players.ContainsKey(room.OwnerPeer))
+        {
+            room.OwnerPeer = room.Players.Keys.FirstOrDefault();
+        }
+    }
+
     public (LeaveRoomResponse Response, ReturnCode Code) LeaveRoom(NetPeer peer)
     {
         foreach (var (roomId, room) in _rooms)
@@ -114,6 +126,8 @@ public class RoomManager
                 Log.Information("离开房间 roomId={RoomId} 剩余={Count}", roomId, room.Players.Count);
                 if (room.Players.Count == 0)
                     _rooms.Remove(roomId);
+                else
+                    ReassignOwner(room);
 
                 return (new LeaveRoomResponse { RoomId = roomId }, ReturnCode.Success);
             }
@@ -148,6 +162,8 @@ public class RoomManager
                 Log.Information("断线离开房间 roomId={RoomId} 剩余={Count}", roomId, room.Players.Count);
                 if (room.Players.Count == 0)
                     _rooms.Remove(roomId);
+                else
+                    ReassignOwner(room);
             }
         }
     }
