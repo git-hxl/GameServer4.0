@@ -3,6 +3,9 @@ using Serilog;
 
 namespace SharedLib.Config;
 
+/// <summary>
+/// JSON 配置文件的加载与保存工具类
+/// </summary>
 public static class ConfigLoader
 {
     private const string DefaultFileName = "server_config.json";
@@ -12,6 +15,9 @@ public static class ConfigLoader
         Formatting = Formatting.Indented
     };
 
+    /// <summary>
+    /// 从文件加载配置，不存在时自动生成默认配置并保存
+    /// </summary>
     public static T Load<T>(string? path = null) where T : new()
     {
         var filePath = path ?? Path.Combine(AppContext.BaseDirectory, DefaultFileName);
@@ -42,6 +48,9 @@ public static class ConfigLoader
         return new T();
     }
 
+    /// <summary>
+    /// 将配置对象序列化为 JSON 并写入文件
+    /// </summary>
     private static void Save<T>(string path, T config)
     {
         try

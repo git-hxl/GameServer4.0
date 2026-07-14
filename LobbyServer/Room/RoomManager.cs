@@ -8,18 +8,30 @@ using SharedLib.Protocol;
 
 namespace LobbyServer.Room;
 
+/// <summary>
+/// 房间管理器，负责房间的创建、加入、离开以及游戏服务器负载均衡分配
+/// </summary>
 public class RoomManager
 {
     private readonly NetManager _netManager;
     private readonly Dictionary<string, GameServerRoom> _rooms = new();
 
+    /// <summary>
+    /// 已注册的游戏服务器字典，Key 为网络对等体，Value 为服务器信息
+    /// </summary>
     public ConcurrentDictionary<NetPeer, LobbyServer.GameServerInfo> GameServers { get; set; } = new();
 
+    /// <summary>
+    /// 初始化房间管理器
+    /// </summary>
     public RoomManager(NetManager netManager)
     {
         _netManager = netManager;
     }
 
+    /// <summary>
+    /// 创建新房间并分配到负载最低的可用游戏服务器
+    /// </summary>
     public (CreateRoomResponse Response, ReturnCode Code) CreateRoom(NetPeer peer, PlayerInfo player, CreateRoomRequest request)
     {
         var gs = PickGameServer();
@@ -51,6 +63,9 @@ public class RoomManager
         }, ReturnCode.Success);
     }
 
+    /// <summary>
+    /// 玩家加入指定房间，自动离开当前所在房间并通知同房间其他玩家
+    /// </summary>
     public (JoinRoomResponse Response, ReturnCode Code) JoinRoom(NetPeer peer, PlayerInfo player, JoinRoomRequest request)
     {
         if (!_rooms.TryGetValue(request.RoomId, out var room))
@@ -87,6 +102,9 @@ public class RoomManager
         }, ReturnCode.Success);
     }
 
+    /// <summary>
+    /// 玩家离开当前所在房间，房间为空时自动删除
+    /// </summary>
     public (LeaveRoomResponse Response, ReturnCode Code) LeaveRoom(NetPeer peer)
     {
         foreach (var (roomId, room) in _rooms)
@@ -103,6 +121,9 @@ public class RoomManager
         return (new LeaveRoomResponse(), ReturnCode.NotInRoom);
     }
 
+    /// <summary>
+    /// 获取当前所有房间列表
+    /// </summary>
     public RoomListResponse GetRoomList()
     {
         var list = _rooms.Values.Select(r => new RoomListInfo
@@ -115,6 +136,9 @@ public class RoomManager
         return new RoomListResponse { Rooms = list };
     }
 
+    /// <summary>
+    /// 从所有房间中移除断线玩家，房间为空时自动删除
+    /// </summary>
     public void RemovePlayer(NetPeer peer)
     {
         foreach (var (roomId, room) in _rooms.ToList())
@@ -128,6 +152,9 @@ public class RoomManager
         }
     }
 
+    /// <summary>
+    /// 选择负载最低的可用游戏服务器
+    /// </summary>
     private KeyValuePair<NetPeer, LobbyServer.GameServerInfo>? PickGameServer()
     {
         var result = GameServers
@@ -137,6 +164,9 @@ public class RoomManager
         return result;
     }
 
+    /// <summary>
+    /// 向指定对等体发送序列化后的消息
+    /// </summary>
     private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();

@@ -3,6 +3,9 @@ using MessagePack;
 namespace SharedLib.Models;
 
 [MessagePackObject]
+/// <summary>
+/// 游戏服务器注册请求
+/// </summary>
 public class GameServerRegisterRequest
 {
     [Key(0)] public int Port { get; set; }

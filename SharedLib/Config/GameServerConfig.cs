@@ -1,5 +1,8 @@
 namespace SharedLib.Config;
 
+/// <summary>
+/// 游戏服务器配置参数
+/// </summary>
 public class GameServerConfig
 {
     public int Port { get; set; } = 9051;

@@ -8,18 +8,30 @@ using SharedLib.Protocol;
 
 namespace LobbyServer.Lobby;
 
+/// <summary>
+/// 大厅管理器，负责玩家加入/离开大厅、聊天广播等功能
+/// </summary>
 public class LobbyManager
 {
     private readonly NetManager _netManager;
     private readonly ConcurrentDictionary<long, NetPeer> _users = new();
 
+    /// <summary>
+    /// 当前在线用户数
+    /// </summary>
     public int UserCount => _users.Count;
 
+    /// <summary>
+    /// 初始化大厅管理器
+    /// </summary>
     public LobbyManager(NetManager netManager)
     {
         _netManager = netManager;
     }
 
+    /// <summary>
+    /// 处理玩家加入大厅请求
+    /// </summary>
     public void Join(NetPeer peer, JoinLobbyRequest request)
     {
         _users[request.Player.UserId] = peer;
@@ -33,6 +45,9 @@ public class LobbyManager
         });
     }
 
+    /// <summary>
+    /// 处理玩家离开大厅请求
+    /// </summary>
     public void Leave(NetPeer peer, LeaveLobbyRequest request)
     {
         _users.TryRemove(request.UserId, out _);
@@ -46,6 +61,9 @@ public class LobbyManager
         });
     }
 
+    /// <summary>
+    /// 处理大厅聊天消息并广播给所有在线玩家
+    /// </summary>
     public void Chat(NetPeer peer, ChatRequest request)
     {
         if (!_users.ContainsKey(request.UserId))
@@ -65,6 +83,9 @@ public class LobbyManager
         });
     }
 
+    /// <summary>
+    /// 根据网络对等体移除断线用户
+    /// </summary>
     public void RemoveByPeer(NetPeer peer)
     {
         var kv = _users.FirstOrDefault(kv => kv.Value == peer);
@@ -75,6 +96,9 @@ public class LobbyManager
         }
     }
 
+    /// <summary>
+    /// 向指定对等体发送序列化后的消息
+    /// </summary>
     private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();
@@ -84,6 +108,9 @@ public class LobbyManager
         peer.Send(writer, DeliveryMethod.ReliableOrdered);
     }
 
+    /// <summary>
+    /// 向所有在线用户广播消息
+    /// </summary>
     private void Broadcast(ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();

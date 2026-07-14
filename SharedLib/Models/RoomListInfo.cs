@@ -3,6 +3,9 @@ using MessagePack;
 namespace SharedLib.Models;
 
 [MessagePackObject]
+/// <summary>
+/// 房间列表信息项
+/// </summary>
 public class RoomListInfo
 {
     [Key(0)] public string RoomId { get; set; } = string.Empty;

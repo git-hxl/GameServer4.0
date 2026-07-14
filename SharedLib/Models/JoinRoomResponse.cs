@@ -3,6 +3,9 @@ using MessagePack;
 namespace SharedLib.Models;
 
 [MessagePackObject]
+/// <summary>
+/// 加入房间响应
+/// </summary>
 public class JoinRoomResponse
 {
     [Key(0)] public string RoomId { get; set; } = string.Empty;

@@ -1,5 +1,8 @@
 namespace SharedLib.Config;
 
+/// <summary>
+/// 大厅服务器配置参数
+/// </summary>
 public class LobbyServerConfig
 {
     public int Port { get; set; } = 9050;

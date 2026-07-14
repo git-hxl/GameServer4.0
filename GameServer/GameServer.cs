@@ -30,6 +30,9 @@ public class GameServer
     private CancellationTokenSource _heartbeatCts = new();
     private readonly PerformanceMonitor _perf = new();
 
+    /// <summary>
+    /// 根据配置初始化 NetManager 和 LobbyClient
+    /// </summary>
     public GameServer(GameServerConfig config)
     {
         _connectionKey = config.ConnectionKey;
@@ -56,6 +59,9 @@ public class GameServer
         };
     }
 
+    /// <summary>
+    /// 启动游戏客户端监听、连接 LobbyServer 并开始心跳
+    /// </summary>
     public void Start()
     {
         // ── 游戏客户端监听 ──
@@ -80,6 +86,9 @@ public class GameServer
             _serverPort, _lobbyAddress, _lobbyPort);
     }
 
+    /// <summary>
+    /// 停止心跳、断开 LobbyServer 连接并停止 NetManager
+    /// </summary>
     public void Stop()
     {
         _heartbeatCts.Cancel();
@@ -90,6 +99,9 @@ public class GameServer
         Log.Information("GameServer 已停止");
     }
 
+    /// <summary>
+    /// 轮询 NetManager 和 LobbyClient 的网络事件
+    /// </summary>
     public void PollEvents()
     {
         _netManager.PollEvents();
@@ -98,22 +110,34 @@ public class GameServer
 
     // ── 游戏客户端事件 ─────────────────────────────────────────────
 
+    /// <summary>
+    /// 验证客户端连接密钥，通过则接受连接
+    /// </summary>
     private void OnConnectionRequest(ConnectionRequest request)
     {
         request.AcceptIfKey(_connectionKey);
     }
 
+    /// <summary>
+    /// 游戏客户端连接成功时记录日志
+    /// </summary>
     private void OnPeerConnected(NetPeer peer)
     {
         Log.Information("游戏客户端连接: {EndPoint}", peer.Address);
     }
 
+    /// <summary>
+    /// 游戏客户端断开连接时记录日志
+    /// </summary>
     private void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
         Log.Information("游戏客户端断开: {EndPoint}, 原因: {Reason}",
             peer.Address, disconnectInfo.Reason);
     }
 
+    /// <summary>
+    /// 接收游戏客户端网络消息并回收 reader
+    /// </summary>
     private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
         Log.Information("游戏客户端消息 {ByteCount} 字节", reader.AvailableBytes);
@@ -122,6 +146,9 @@ public class GameServer
 
     // ── LobbyServer 通信 ───────────────────────────────────────────
 
+    /// <summary>
+    /// 连接 LobbyServer 成功后发送注册请求
+    /// </summary>
     private void OnLobbyConnected(NetPeer peer)
     {
         _lobbyPeer = peer;
@@ -140,12 +167,18 @@ public class GameServer
         Log.Information("已向 LobbyServer 发送注册");
     }
 
+    /// <summary>
+    /// 与 LobbyServer 断开连接时清理 peer 引用并记录日志
+    /// </summary>
     private void OnLobbyDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
         _lobbyPeer = null;
         Log.Warning("与 LobbyServer 断开: {Reason}", disconnectInfo.Reason);
     }
 
+    /// <summary>
+    /// 接收 LobbyServer 网络消息并回收 reader
+    /// </summary>
     private void OnLobbyReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
         Log.Information("LobbyServer 消息 {ByteCount} 字节", reader.AvailableBytes);
@@ -154,6 +187,9 @@ public class GameServer
 
     // ── 心跳 ─────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// 每 5 秒发送一次心跳到 LobbyServer
+    /// </summary>
     private async Task HeartbeatLoop(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
@@ -176,6 +212,9 @@ public class GameServer
         }
     }
 
+    /// <summary>
+    /// 组装并发送 GameServerHeartbeat 消息到 LobbyServer
+    /// </summary>
     private void SendHeartbeat()
     {
         var writer = new NetDataWriter();

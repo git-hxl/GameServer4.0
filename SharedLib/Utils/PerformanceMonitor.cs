@@ -14,6 +14,9 @@ public class PerformanceMonitor
     public float CpuPercent { get; private set; }
     public long MemoryMB { get; private set; }
 
+    /// <summary>
+    /// 初始化性能监控，记录当前进程的 CPU 时间基线
+    /// </summary>
     public PerformanceMonitor()
     {
         _process = Process.GetCurrentProcess();

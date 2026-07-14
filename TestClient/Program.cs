@@ -165,7 +165,7 @@ using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(15));
 var cts       = new CancellationTokenSource();
 var quitFlag  = false;
 
-Log.Information("命令: joinl | leavel | chat <内容> | create | joinr <roomId> | leaver | rooms | status | quit");
+Log.Information("命令: joinlobby | leavelobby | chat <内容> | createroom | joinroom <roomId> | leaveroom | rooms | status | quit");
 
 _ = Task.Run(async () =>
 {
@@ -180,25 +180,25 @@ _ = Task.Run(async () =>
 
         switch (cmd)
         {
-            case "joinl":
+            case "joinlobby":
                 SendMessage(MessageIds.JoinLobby, new JoinLobbyRequest { Player = player });
                 break;
 
-            case "leavel":
+            case "leavelobby":
                 SendMessage(MessageIds.LeaveLobby, new LeaveLobbyRequest
                 {
                     UserId = userId
                 });
                 break;
 
-            case "create":
+            case "createroom":
                 SendMessage(MessageIds.CreateRoom, new CreateRoomRequest());
                 break;
 
-            case "joinr":
+            case "joinroom":
                 if (parts.Length < 2)
                 {
-                    Log.Information("用法: joinr <RoomId>");
+                    Log.Information("用法: joinroom <RoomId>");
                     break;
                 }
                 SendMessage(MessageIds.JoinRoom, new JoinRoomRequest
@@ -207,7 +207,7 @@ _ = Task.Run(async () =>
                 });
                 break;
 
-            case "leaver":
+            case "leaveroom":
                 SendMessage(MessageIds.LeaveRoom, new LeaveRoomRequest());
                 break;
 

@@ -11,8 +11,14 @@ using System.Collections.Concurrent;
 
 namespace LobbyServer;
 
+/// <summary>
+/// 大厅服务器主类，负责客户端连接管理、消息路由和 GameServer 注册
+/// </summary>
 public class LobbyServer
 {
+    /// <summary>
+    /// 游戏服务器信息记录，包含地址、端口、负载和心跳信息
+    /// </summary>
     public record GameServerInfo
     {
         public string Address { get; init; } = string.Empty;
@@ -32,6 +38,9 @@ public class LobbyServer
 
     private readonly ConcurrentDictionary<NetPeer, GameServerInfo> _gameServers = new();
 
+    /// <summary>
+    /// 根据配置初始化大厅服务器
+    /// </summary>
     public LobbyServer(LobbyServerConfig config)
     {
         _connectionKey = config.ConnectionKey;
@@ -45,6 +54,9 @@ public class LobbyServer
         };
     }
 
+    /// <summary>
+    /// 启动大厅服务器，初始化子模块并绑定网络事件回调
+    /// </summary>
     public void Start(int port)
     {
         _lobbyManager = new LobbyManager(_netManager);
@@ -59,27 +71,42 @@ public class LobbyServer
         Log.Information("Lobby server started on port {Port}", port);
     }
 
+    /// <summary>
+    /// 停止大厅服务器
+    /// </summary>
     public void Stop()
     {
         _netManager.Stop();
         Log.Information("Lobby server stopped");
     }
 
+    /// <summary>
+    /// 轮询处理网络事件
+    /// </summary>
     public void PollEvents()
     {
         _netManager.PollEvents();
     }
 
+    /// <summary>
+    /// 处理连接请求并进行密钥验证
+    /// </summary>
     private void OnConnectionRequest(ConnectionRequest request)
     {
         request.AcceptIfKey(_connectionKey);
     }
 
+    /// <summary>
+    /// 处理客户端连接成功事件
+    /// </summary>
     private void OnPeerConnected(NetPeer peer)
     {
         Log.Information("Client connected: {EndPoint}", peer.Address);
     }
 
+    /// <summary>
+    /// 处理客户端断开连接，清理大厅、房间和玩家数据
+    /// </summary>
     private void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
         Log.Information("客户端断开: {EndPoint}, 原因: {Reason}",
@@ -91,6 +118,9 @@ public class LobbyServer
         _gameServers.TryRemove(peer, out _);
     }
 
+    /// <summary>
+    /// 处理收到的网络消息，根据消息 ID 分发到对应的处理器
+    /// </summary>
     private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
         try
@@ -126,11 +156,9 @@ public class LobbyServer
                     var regReq = MessagePackSerializer.Deserialize<GameServerRegisterRequest>(payload);
                     if (regReq != null)
                     {
-#pragma warning disable CS0618
                         _gameServers[peer] = new GameServerInfo
                         {
-                            Address = peer.Address.Address.ToString(),
-#pragma warning restore CS0618
+                            Address = peer.Address.ToString(),
                             Port = regReq.Port,
                             PlayerCount = regReq.PlayerCount,
                             RoomCount = regReq.RoomCount,
@@ -149,6 +177,8 @@ public class LobbyServer
                         info.CpuPercent = hbReq.CpuPercent;
                         info.MemoryMB = hbReq.MemoryMB;
                         info.LastHeartbeat = DateTime.UtcNow;
+                        Log.Information("GameServer 心跳 端口={Port} 玩家={PlayerCount} 房间={RoomCount} CPU={Cpu:F1}% 内存={Mem}MB",
+                            hbReq.Port, hbReq.PlayerCount, hbReq.RoomCount, hbReq.CpuPercent, hbReq.MemoryMB);
                     }
                     break;
 
@@ -195,6 +225,9 @@ public class LobbyServer
         }
     }
 
+    /// <summary>
+    /// 向指定对等体发送序列化后的消息
+    /// </summary>
     private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();
