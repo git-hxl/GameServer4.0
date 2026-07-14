@@ -2,10 +2,10 @@ using MessagePack;
 
 namespace SharedLib.Models;
 
-[MessagePackObject]
 /// <summary>
 /// 聊天请求
 /// </summary>
+[MessagePackObject]
 public class ChatRequest
 {
     [Key(0)] public long UserId { get; set; }

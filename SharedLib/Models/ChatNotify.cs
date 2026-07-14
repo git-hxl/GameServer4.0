@@ -2,10 +2,10 @@ using MessagePack;
 
 namespace SharedLib.Models;
 
-[MessagePackObject]
 /// <summary>
 /// 聊天通知
 /// </summary>
+[MessagePackObject]
 public class ChatNotify
 {
     [Key(0)] public long UserId { get; set; }

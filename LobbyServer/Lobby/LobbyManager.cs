@@ -32,33 +32,41 @@ public class LobbyManager
     /// <summary>
     /// 处理玩家加入大厅请求
     /// </summary>
-    public void Join(NetPeer peer, JoinLobbyRequest request)
+    public (JoinLobbyResponse Response, ReturnCode Code) Join(NetPeer peer, JoinLobbyRequest request)
     {
-        _users[request.Player.UserId] = peer;
+        var userId = request.Player.UserId;
+
+        if (_users.TryGetValue(userId, out var existingPeer) && existingPeer != peer)
+        {
+            _users.TryRemove(userId, out _);
+            Log.Warning("大厅加入替换 userId={UserId} 旧连接已被顶", userId);
+        }
+
+        _users[userId] = peer;
 
         Log.Information("大厅加入 userId={UserId} nickname={Nickname} 在线人数={Count}",
-            request.Player.UserId, request.Player.Nickname, _users.Count);
+            userId, request.Player.Nickname, _users.Count);
 
-        Send(peer, MessageIds.JoinLobby, ReturnCode.Success, new JoinLobbyResponse
-        {
-            Player = request.Player
-        });
+        return (new JoinLobbyResponse { Player = request.Player }, ReturnCode.Success);
     }
 
     /// <summary>
     /// 处理玩家离开大厅请求
     /// </summary>
-    public void Leave(NetPeer peer, LeaveLobbyRequest request)
+    public (LeaveLobbyResponse Response, ReturnCode Code) Leave(NetPeer peer, LeaveLobbyRequest request)
     {
+        if (!_users.ContainsKey(request.UserId))
+        {
+            Log.Warning("大厅离开失败 userId={UserId} 未加入大厅", request.UserId);
+            return (new LeaveLobbyResponse { UserId = request.UserId }, ReturnCode.NotInLobby);
+        }
+
         _users.TryRemove(request.UserId, out _);
 
         Log.Information("大厅离开 userId={UserId} 在线人数={Count}",
             request.UserId, _users.Count);
 
-        Send(peer, MessageIds.LeaveLobby, ReturnCode.Success, new LeaveLobbyResponse
-        {
-            UserId = request.UserId
-        });
+        return (new LeaveLobbyResponse { UserId = request.UserId }, ReturnCode.Success);
     }
 
     /// <summary>

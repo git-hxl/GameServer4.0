@@ -135,15 +135,19 @@ public class LobbyServer
                     var joinReq = MessagePackSerializer.Deserialize<JoinLobbyRequest>(payload);
                     if (joinReq != null)
                     {
-                        _lobbyManager.Join(peer, joinReq);
+                        var (joinLobbyRes, joinLobbyCode) = _lobbyManager.Join(peer, joinReq);
                         _players[peer] = joinReq.Player;
+                        Send(peer, MessageIds.JoinLobby, joinLobbyCode, joinLobbyRes);
                     }
                     break;
 
                 case MessageIds.LeaveLobby:
                     var leaveReq = MessagePackSerializer.Deserialize<LeaveLobbyRequest>(payload);
                     if (leaveReq != null)
-                        _lobbyManager.Leave(peer, leaveReq);
+                    {
+                        var (leaveLobbyRes, leaveLobbyCode) = _lobbyManager.Leave(peer, leaveReq);
+                        Send(peer, MessageIds.LeaveLobby, leaveLobbyCode, leaveLobbyRes);
+                    }
                     break;
 
                 case MessageIds.Chat:

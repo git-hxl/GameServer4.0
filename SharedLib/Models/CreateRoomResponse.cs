@@ -2,10 +2,10 @@ using MessagePack;
 
 namespace SharedLib.Models;
 
-[MessagePackObject]
 /// <summary>
 /// 创建房间响应
 /// </summary>
+[MessagePackObject]
 public class CreateRoomResponse
 {
     [Key(0)] public string RoomId { get; set; } = string.Empty;

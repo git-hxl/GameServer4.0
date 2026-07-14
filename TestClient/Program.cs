@@ -57,13 +57,19 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
         {
             case MessageIds.JoinLobby:
                 var joinRes = MessagePackSerializer.Deserialize<JoinLobbyResponse>(payload);
-                Log.Information("[JoinLobby] {Code} userId={UserId} nickname={Nickname}",
-                    code, joinRes?.Player.UserId, joinRes?.Player.Nickname);
+                if (code == 0)
+                    Log.Information("[JoinLobby] 成功 userId={UserId} nickname={Nickname}",
+                        joinRes?.Player.UserId, joinRes?.Player.Nickname);
+                else
+                    Log.Warning("[JoinLobby] 失败 code={Code}", code);
                 break;
 
             case MessageIds.LeaveLobby:
                 var leaveRes = MessagePackSerializer.Deserialize<LeaveLobbyResponse>(payload);
-                Log.Information("[LeaveLobby] {Code} userId={UserId}", code, leaveRes?.UserId);
+                if (code == 0)
+                    Log.Information("[LeaveLobby] 成功 userId={UserId}", leaveRes?.UserId);
+                else
+                    Log.Warning("[LeaveLobby] 失败 code={Code}", code);
                 break;
 
             case MessageIds.ChatNotify:

@@ -2,10 +2,10 @@ using MessagePack;
 
 namespace SharedLib.Models;
 
-[MessagePackObject]
 /// <summary>
 /// 玩家基本信息
 /// </summary>
+[MessagePackObject]
 public class PlayerInfo
 {
     [Key(0)] public long UserId { get; set; }

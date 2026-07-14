@@ -2,10 +2,10 @@ using MessagePack;
 
 namespace SharedLib.Models;
 
-[MessagePackObject]
 /// <summary>
 /// 游戏服务器心跳请求
 /// </summary>
+[MessagePackObject]
 public class GameServerHeartbeatRequest
 {
     [Key(0)] public int Port { get; set; }

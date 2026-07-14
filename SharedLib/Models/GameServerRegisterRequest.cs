@@ -2,10 +2,10 @@ using MessagePack;
 
 namespace SharedLib.Models;
 
-[MessagePackObject]
 /// <summary>
 /// 游戏服务器注册请求
 /// </summary>
+[MessagePackObject]
 public class GameServerRegisterRequest
 {
     [Key(0)] public int Port { get; set; }
