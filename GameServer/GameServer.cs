@@ -157,7 +157,7 @@ public class GameServer
         var writer = new NetDataWriter();
         writer.Put(MessageIds.GameServerRegister);
         writer.Put((byte)ReturnCode.Success);
-        writer.Put(MessagePackSerializer.Serialize(new GameServerRegisterRequest
+        writer.Put(MessagePackSerializer.Serialize(new GameServerInfo
         {
             Port = _serverPort,
             PlayerCount = 0,
@@ -220,7 +220,7 @@ public class GameServer
         var writer = new NetDataWriter();
         writer.Put(MessageIds.GameServerHeartbeat);
         writer.Put((byte)ReturnCode.Success);
-        writer.Put(MessagePackSerializer.Serialize(new GameServerHeartbeatRequest
+        writer.Put(MessagePackSerializer.Serialize(new GameServerInfo
         {
             Port = _serverPort,
             PlayerCount = 0,

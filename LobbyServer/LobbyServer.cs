@@ -16,19 +16,6 @@ namespace LobbyServer;
 /// </summary>
 public class LobbyServer
 {
-    /// <summary>
-    /// 游戏服务器信息记录，包含地址、端口、负载和心跳信息
-    /// </summary>
-    public record GameServerInfo
-    {
-        public string Address { get; init; } = string.Empty;
-        public int Port { get; init; }
-        public int PlayerCount { get; set; }
-        public int RoomCount { get; set; }
-        public float CpuPercent { get; set; }
-        public long MemoryMB { get; set; }
-        public DateTime LastHeartbeat { get; set; }
-    }
     private readonly NetManager _netManager;
     private readonly EventBasedNetListener _listener;
     private readonly string _connectionKey;
@@ -37,6 +24,7 @@ public class LobbyServer
     private readonly Dictionary<NetPeer, PlayerInfo> _players = new();
 
     private readonly ConcurrentDictionary<NetPeer, GameServerInfo> _gameServers = new();
+    private readonly ConcurrentDictionary<NetPeer, DateTime> _gameServerHeartbeat = new();
 
     /// <summary>
     /// 根据配置初始化大厅服务器
@@ -116,6 +104,7 @@ public class LobbyServer
         _roomManager.RemovePlayer(peer);
         _players.Remove(peer);
         _gameServers.TryRemove(peer, out _);
+        _gameServerHeartbeat.TryRemove(peer, out _);
     }
 
     /// <summary>
@@ -157,32 +146,30 @@ public class LobbyServer
                     break;
 
                 case MessageIds.GameServerRegister:
-                    var regReq = MessagePackSerializer.Deserialize<GameServerRegisterRequest>(payload);
-                    if (regReq != null)
+                    var regInfo = MessagePackSerializer.Deserialize<GameServerInfo>(payload);
+                    if (regInfo != null)
                     {
-                        _gameServers[peer] = new GameServerInfo
-                        {
-                            Address = peer.Address.ToString(),
-                            Port = regReq.Port,
-                            PlayerCount = regReq.PlayerCount,
-                            RoomCount = regReq.RoomCount,
-                            LastHeartbeat = DateTime.UtcNow
-                        };
-                        Log.Information("GameServer 注册成功 端口={Port}", regReq.Port);
+                        var ep = peer.Address;
+                        var epStr = ep.ToString();
+                        var colon = epStr.LastIndexOf(':');
+                        regInfo.Address = colon > 0 ? epStr[..colon] : epStr;
+                        _gameServers[peer] = regInfo;
+                        _gameServerHeartbeat[peer] = DateTime.UtcNow;
+                        Log.Information("GameServer 注册成功 端口={Port}", regInfo.Port);
                     }
                     break;
 
                 case MessageIds.GameServerHeartbeat:
-                    var hbReq = MessagePackSerializer.Deserialize<GameServerHeartbeatRequest>(payload);
-                    if (hbReq != null && _gameServers.TryGetValue(peer, out var info))
+                    var hbInfo = MessagePackSerializer.Deserialize<GameServerInfo>(payload);
+                    if (hbInfo != null && _gameServers.TryGetValue(peer, out var gsInfo))
                     {
-                        info.PlayerCount = hbReq.PlayerCount;
-                        info.RoomCount = hbReq.RoomCount;
-                        info.CpuPercent = hbReq.CpuPercent;
-                        info.MemoryMB = hbReq.MemoryMB;
-                        info.LastHeartbeat = DateTime.UtcNow;
+                        gsInfo.PlayerCount = hbInfo.PlayerCount;
+                        gsInfo.RoomCount = hbInfo.RoomCount;
+                        gsInfo.CpuPercent = hbInfo.CpuPercent;
+                        gsInfo.MemoryMB = hbInfo.MemoryMB;
+                        _gameServerHeartbeat[peer] = DateTime.UtcNow;
                         Log.Information("GameServer 心跳 端口={Port} 玩家={PlayerCount} 房间={RoomCount} CPU={Cpu:F1}% 内存={Mem}MB",
-                            hbReq.Port, hbReq.PlayerCount, hbReq.RoomCount, hbReq.CpuPercent, hbReq.MemoryMB);
+                            hbInfo.Port, hbInfo.PlayerCount, hbInfo.RoomCount, hbInfo.CpuPercent, hbInfo.MemoryMB);
                     }
                     break;
 

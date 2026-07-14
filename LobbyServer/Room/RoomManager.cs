@@ -19,7 +19,7 @@ public class RoomManager
     /// <summary>
     /// 已注册的游戏服务器字典，Key 为网络对等体，Value 为服务器信息
     /// </summary>
-    public ConcurrentDictionary<NetPeer, LobbyServer.GameServerInfo> GameServers { get; set; } = new();
+    public ConcurrentDictionary<NetPeer, GameServerInfo> GameServers { get; set; } = new();
 
     /// <summary>
     /// 初始化房间管理器
@@ -171,7 +171,7 @@ public class RoomManager
     /// <summary>
     /// 选择负载最低的可用游戏服务器
     /// </summary>
-    private KeyValuePair<NetPeer, LobbyServer.GameServerInfo>? PickGameServer()
+    private KeyValuePair<NetPeer, GameServerInfo>? PickGameServer()
     {
         var result = GameServers
             .Where(gs => gs.Key.ConnectionState == ConnectionState.Connected)
