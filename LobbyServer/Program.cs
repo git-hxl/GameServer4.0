@@ -1,17 +1,17 @@
 ﻿using Serilog;
 using SharedLib.Config;
 
-Log.Logger = new LoggerConfiguration().WriteTo.Console().WriteTo.File("log.txt",
+Log.Logger = new LoggerConfiguration().WriteTo.Console().WriteTo.File("lobby_server_log.txt",
     rollingInterval: RollingInterval.Day,
     rollOnFileSizeLimit: true).CreateLogger();
 
-Log.Information("Starting up");
+Log.Information("正在启动 LobbyServer");
 
-var settings = ConfigLoader.Load<ServerSettings>();
-var server = new LobbyServer.LobbyServer(settings.Network);
-server.Start(settings.Server.Port);
+var config = ConfigLoader.Load<LobbyServerConfig>("LobbyServerConfig.json");
+var server = new LobbyServer.LobbyServer(config);
+server.Start(config.Port);
 
-using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(settings.Network.UpdateTime));
+using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(config.UpdateTime));
 
 while (await timer.WaitForNextTickAsync())
 {

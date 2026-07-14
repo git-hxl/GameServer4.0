@@ -9,4 +9,7 @@ public static class MessageIds
     public const ushort LeaveLobby = 2;
     public const ushort Chat = 3;
     public const ushort ChatNotify = 4;
+
+    // GameServer 内部通信
+    public const ushort GameServerRegister = 100;
 }

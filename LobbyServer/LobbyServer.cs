@@ -15,17 +15,19 @@ public class LobbyServer
     private readonly string _connectionKey;
     private LobbyManager _lobbyManager = null!;
 
-    public LobbyServer(NetworkConfig networkConfig)
+    private readonly List<NetPeer> _gameServers = new();
+
+    public LobbyServer(LobbyServerConfig config)
     {
+        _connectionKey = config.ConnectionKey;
         _listener = new EventBasedNetListener();
         _netManager = new NetManager(_listener)
         {
-            UpdateTime = networkConfig.UpdateTime,
-            PingInterval = networkConfig.PingInterval,
-            DisconnectTimeout = networkConfig.DisconnectTimeout,
-            ChannelsCount = networkConfig.ChannelsCount
+            UpdateTime = config.UpdateTime,
+            PingInterval = config.PingInterval,
+            DisconnectTimeout = config.DisconnectTimeout,
+            ChannelsCount = config.ChannelsCount
         };
-        _connectionKey = networkConfig.ConnectionKey;
     }
 
     public void Start(int port)
@@ -95,6 +97,16 @@ public class LobbyServer
                     var chatReq = MessagePackSerializer.Deserialize<ChatRequest>(payload);
                     if (chatReq != null)
                         _lobbyManager.Chat(peer, chatReq);
+                    break;
+
+                case MessageIds.GameServerRegister:
+                    var regReq = MessagePackSerializer.Deserialize<GameServerRegisterRequest>(payload);
+                    if (regReq != null)
+                    {
+                        _gameServers.Add(peer);
+                        Log.Information("GameServer 注册成功 端口={Port} 玩家={PlayerCount} 房间={RoomCount}",
+                            regReq.Port, regReq.PlayerCount, regReq.RoomCount);
+                    }
                     break;
 
                 default:
