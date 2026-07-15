@@ -30,19 +30,13 @@ Log.Information("TestClient 启动, userId={UserId} nickname={Nickname}", userId
 
 // ── 创建 LiteNetLib 客户端 ───────────────────────────────────────────
 var listener = new EventBasedNetListener();
-var client   = new NetManager(listener);
+var client = new NetManager(listener);
 
 // 连接成功
-listener.PeerConnectedEvent += peer =>
-{
-    Log.Information("已连接到服务器");
-};
+listener.PeerConnectedEvent += peer => { Log.Information("已连接到服务器"); };
 
 // 断开连接
-listener.PeerDisconnectedEvent += (peer, info) =>
-{
-    Log.Information("连接断开: {Reason}", info.Reason);
-};
+listener.PeerDisconnectedEvent += (peer, info) => { Log.Information("连接断开: {Reason}", info.Reason); };
 
 // 收到消息
 listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
@@ -50,8 +44,8 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
     try
     {
         var messageId = reader.GetUShort();
-        var code      = reader.GetByte();
-        var payload   = reader.GetRemainingBytes();
+        var code = reader.GetByte();
+        var payload = reader.GetRemainingBytes();
 
         switch (messageId)
         {
@@ -82,7 +76,7 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
                 var createRes = MessagePackSerializer.Deserialize<CreateRoomResponse>(payload);
                 if (code == 0)
                     Log.Information("[房间] 创建成功 roomId={RoomId} GameServer={Addr}:{Port}",
-                        createRes?.RoomId, createRes?.GameServerAddress, createRes?.GameServerPort);
+                        createRes?.Room.RoomId, createRes?.Room.GameServerAddress, createRes?.Room.GameServerPort);
                 else
                     Log.Warning("[房间] 创建失败");
                 break;
@@ -91,17 +85,19 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
                 var joinRoomRes = MessagePackSerializer.Deserialize<JoinRoomResponse>(payload);
                 if (code == 0)
                 {
+                    var r = joinRoomRes?.Room;
                     Log.Information("[房间] 加入成功 roomId={RoomId} GameServer={Addr}:{Port} 房主={Owner}",
-                        joinRoomRes?.RoomId, joinRoomRes?.GameServerAddress, joinRoomRes?.GameServerPort, joinRoomRes?.OwnerUserId);
-                    if (joinRoomRes?.Players is { Count: > 0 })
+                        r?.RoomId, r?.GameServerAddress, r?.GameServerPort, r?.OwnerUserId);
+                    if (r?.Players is { Count: > 0 })
                     {
                         Log.Information("[房间] 现有成员:");
-                        foreach (var p in joinRoomRes.Players)
+                        foreach (var p in r.Players)
                             Log.Information("  {Nickname}({UserId})", p.Nickname, p.UserId);
                     }
                 }
                 else
-                    Log.Warning("[房间] 加入失败 roomId={RoomId}", joinRoomRes?.RoomId);
+                    Log.Warning("[房间] 加入失败");
+
                 break;
 
             case MessageIds.LeaveRoom:
@@ -130,6 +126,7 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
                 {
                     Log.Information("[房间列表] 空");
                 }
+
                 break;
 
             default:
@@ -148,10 +145,7 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
 };
 
 // 网络错误
-listener.NetworkErrorEvent += (endPoint, error) =>
-{
-    Log.Error("网络错误: {Error}, 来源: {EndPoint}", error, endPoint);
-};
+listener.NetworkErrorEvent += (endPoint, error) => { Log.Error("网络错误: {Error}, 来源: {EndPoint}", error, endPoint); };
 
 // ── 启动并连接 ──────────────────────────────────────────────────────
 client.Start();
@@ -176,10 +170,11 @@ void SendMessage(ushort messageId, object data)
 
 // ── 主循环 + 命令行交互 ────────────────────────────────────────────
 using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(15));
-var cts       = new CancellationTokenSource();
-var quitFlag  = false;
+var cts = new CancellationTokenSource();
+var quitFlag = false;
 
-Log.Information("命令: joinlobby | leavelobby | chat <内容> | createroom | joinroom <roomId> | leaveroom | rooms | status | quit");
+Log.Information(
+    "命令: joinlobby | leavelobby | chat <内容> | createroom | joinroom <roomId> | leaveroom | rooms | status | quit");
 
 _ = Task.Run(async () =>
 {
@@ -190,7 +185,7 @@ _ = Task.Run(async () =>
             continue;
 
         var parts = line.Split(' ', 2);
-        var cmd   = parts[0].ToLower();
+        var cmd = parts[0].ToLower();
 
         switch (cmd)
         {
@@ -215,6 +210,7 @@ _ = Task.Run(async () =>
                     Log.Information("用法: joinroom <RoomId>");
                     break;
                 }
+
                 SendMessage(MessageIds.JoinRoom, new JoinRoomRequest
                 {
                     RoomId = parts[1]
@@ -235,6 +231,7 @@ _ = Task.Run(async () =>
                     Log.Information("用法: chat <内容>");
                     break;
                 }
+
                 SendMessage(MessageIds.Chat, new ChatRequest
                 {
                     UserId = userId,
@@ -256,6 +253,7 @@ _ = Task.Run(async () =>
                     client.DisconnectPeer(peer);
                     Log.Information("已断开服务器连接");
                 }
+
                 quitFlag = true;
                 cts.Cancel();
                 break;
