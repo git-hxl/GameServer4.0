@@ -114,6 +114,23 @@ listener.NetworkReceiveEvent += (peer, reader, channel, method) =>
                     joinNotify?.Player.Nickname, joinNotify?.Player.UserId, joinNotify?.RoomId);
                 break;
 
+            case MessageIds.GameReady:
+                var readyRes = MessagePackSerializer.Deserialize<GameReadyResponse>(payload);
+                if (code == 0)
+                    Log.Information("[准备] {Ready}/{Total} 全部准备={AllReady}",
+                        readyRes?.ReadyCount, readyRes?.TotalCount, readyRes?.AllReady);
+                break;
+
+            case MessageIds.GameStart:
+                Log.Information("[游戏] 开始响应 code={Code}", code);
+                break;
+
+            case MessageIds.GameStartNotify:
+                var startNotify = MessagePackSerializer.Deserialize<GameStartNotify>(payload);
+                Log.Information("[游戏] 游戏开始! 连接 {Addr}:{Port} roomId={RoomId}",
+                    startNotify?.GameServerAddress, startNotify?.GameServerPort, startNotify?.RoomId);
+                break;
+
             case MessageIds.RoomList:
                 var roomList = MessagePackSerializer.Deserialize<RoomListResponse>(payload);
                 if (roomList?.Rooms.Count > 0)
@@ -174,7 +191,7 @@ var cts = new CancellationTokenSource();
 var quitFlag = false;
 
 Log.Information(
-    "命令: joinlobby | leavelobby | chat <内容> | createroom | joinroom <roomId> | leaveroom | rooms | status | quit");
+    "命令: joinlobby | leavelobby | chat <内容> | createroom | joinroom <roomId> | leaveroom | rooms | ready | start | status | quit");
 
 _ = Task.Run(async () =>
 {
@@ -223,6 +240,14 @@ _ = Task.Run(async () =>
 
             case "rooms":
                 SendMessage(MessageIds.RoomList, new RoomListRequest());
+                break;
+
+            case "ready":
+                SendMessage(MessageIds.GameReady, new GameReadyRequest());
+                break;
+
+            case "start":
+                SendMessage(MessageIds.GameStart, new GameStartRequest());
                 break;
 
             case "chat":

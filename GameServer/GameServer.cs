@@ -6,6 +6,7 @@ using SharedLib.Config;
 using SharedLib.Models;
 using SharedLib.Protocol;
 using SharedLib.Utils;
+using GameServer.Room;
 
 namespace GameServer;
 
@@ -29,6 +30,7 @@ public class GameServer
 
     private CancellationTokenSource _heartbeatCts = new();
     private readonly PerformanceMonitor _perf = new();
+    private GameRoomManager _roomManager = null!;
 
     /// <summary>
     /// 根据配置初始化 NetManager 和 LobbyClient
@@ -64,6 +66,8 @@ public class GameServer
     /// </summary>
     public void Start()
     {
+        _roomManager = new GameRoomManager(_netManager);
+
         // ── 游戏客户端监听 ──
         _listener.ConnectionRequestEvent += OnConnectionRequest;
         _listener.PeerConnectedEvent += OnPeerConnected;
@@ -133,6 +137,7 @@ public class GameServer
     {
         Log.Information("游戏客户端断开: {EndPoint}, 原因: {Reason}",
             peer.Address, disconnectInfo.Reason);
+        _roomManager.RemovePlayer(peer);
     }
 
     /// <summary>
@@ -140,8 +145,41 @@ public class GameServer
     /// </summary>
     private void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
-        Log.Information("游戏客户端消息 {ByteCount} 字节", reader.AvailableBytes);
-        reader.Recycle();
+        try
+        {
+            var messageId = reader.GetUShort();
+            var code      = reader.GetByte();
+            var payload   = reader.GetRemainingBytes();
+
+            switch (messageId)
+            {
+                case MessageIds.JoinGame:
+                    var joinReq = MessagePackSerializer.Deserialize<JoinGameRequest>(payload);
+                    if (joinReq != null)
+                    {
+                        var (joinRes, joinCode) = _roomManager.JoinGame(peer, joinReq);
+                        Send(peer, MessageIds.JoinGame, joinCode, joinRes);
+                    }
+                    break;
+
+                case MessageIds.LeaveGame:
+                    var (leaveCode, leaveRoomId) = _roomManager.LeaveGame(peer);
+                    Send(peer, MessageIds.LeaveGame, leaveCode, new { RoomId = leaveRoomId ?? "" });
+                    break;
+
+                default:
+                    Log.Information("游戏客户端消息 ID={MessageId} {ByteCount} 字节", messageId, reader.AvailableBytes);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "处理游戏客户端消息失败");
+        }
+        finally
+        {
+            reader.Recycle();
+        }
     }
 
     // ── LobbyServer 通信 ───────────────────────────────────────────
@@ -181,8 +219,31 @@ public class GameServer
     /// </summary>
     private void OnLobbyReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
-        Log.Information("LobbyServer 消息 {ByteCount} 字节", reader.AvailableBytes);
-        reader.Recycle();
+        try
+        {
+            var messageId = reader.GetUShort();
+            var code      = reader.GetByte();
+            var payload   = reader.GetRemainingBytes();
+
+            switch (messageId)
+            {
+                case MessageIds.CreateGameRoom:
+                    var roomReq = MessagePackSerializer.Deserialize<CreateGameRoomRequest>(payload);
+                    if (roomReq != null)
+                    {
+                        _roomManager.CreateRoom(roomReq);
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "处理 LobbyServer 消息失败");
+        }
+        finally
+        {
+            reader.Recycle();
+        }
     }
 
     // ── 心跳 ─────────────────────────────────────────────────────────
@@ -229,5 +290,14 @@ public class GameServer
             MemoryMB = _perf.MemoryMB
         }));
         _lobbyPeer!.Send(writer, DeliveryMethod.ReliableOrdered);
+    }
+
+    private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
+    {
+        var writer = new NetDataWriter();
+        writer.Put(messageId);
+        writer.Put((byte)code);
+        writer.Put(MessagePackSerializer.Serialize(data));
+        peer.Send(writer, DeliveryMethod.ReliableOrdered);
     }
 }

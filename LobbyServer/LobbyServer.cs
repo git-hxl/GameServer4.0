@@ -201,6 +201,16 @@ public class LobbyServer
                     Send(peer, MessageIds.RoomList, ReturnCode.Success, roomListRes);
                     break;
 
+                case MessageIds.GameReady:
+                    var (readyRes, readyCode) = _roomManager.SetReady(peer);
+                    Send(peer, MessageIds.GameReady, readyCode, readyRes);
+                    break;
+
+                case MessageIds.GameStart:
+                    var (startCode, startNotify) = _roomManager.StartGame(peer);
+                    Send(peer, MessageIds.GameStart, startCode, new GameStartResponse { Code = (int)startCode });
+                    break;
+
                 default:
                     Log.Warning("未知消息 ID: {MessageId}", messageId);
                     break;

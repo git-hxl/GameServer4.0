@@ -11,7 +11,7 @@ namespace LobbyServer.Room;
 public class RoomManager
 {
     private readonly NetManager _netManager;
-    private readonly Dictionary<string, GameRoom> _rooms = new();
+    private readonly Dictionary<string, LobbyRoom> _rooms = new();
 
     public ConcurrentDictionary<NetPeer, GameServerInfo> GameServers { get; set; } = new();
 
@@ -20,6 +20,9 @@ public class RoomManager
         _netManager = netManager;
     }
 
+    /// <summary>
+    /// 创建新房间并分配到负载最低的 GameServer
+    /// </summary>
     public (CreateRoomResponse Response, ReturnCode Code) CreateRoom(NetPeer peer, PlayerInfo player, CreateRoomRequest request)
     {
         Log.Information("[RoomManager] CreateRoom userId={UserId} roomId={RoomId}", player.UserId, request.RoomId);
@@ -33,7 +36,7 @@ public class RoomManager
 
         var gsValue = gs.Value;
         var roomId = request.RoomId ?? Guid.NewGuid().ToString("N")[..8];
-        var room = new GameRoom
+        var room = new LobbyRoom
         {
             Info = new RoomInfo
             {
@@ -55,6 +58,9 @@ public class RoomManager
         return (new CreateRoomResponse { Room = room.Info }, ReturnCode.Success);
     }
 
+    /// <summary>
+    /// 玩家加入已有房间，自动离开当前房间并通知其他玩家
+    /// </summary>
     public (JoinRoomResponse Response, ReturnCode Code) JoinRoom(NetPeer peer, PlayerInfo player, JoinRoomRequest request)
     {
         Log.Information("[RoomManager] JoinRoom userId={UserId} roomId={RoomId}", player.UserId, request.RoomId);
@@ -90,12 +96,18 @@ public class RoomManager
         return (new JoinRoomResponse { Room = room.Info }, ReturnCode.Success);
     }
 
+    /// <summary>
+    /// 玩家离开当前房间，无玩家时自动移除房间
+    /// </summary>
     public (LeaveRoomResponse Response, ReturnCode Code) LeaveRoom(NetPeer peer)
     {
+        Log.Information("[RoomManager] LeaveRoom");
+
         foreach (var (roomId, room) in _rooms)
         {
             if (room.PlayerPeers.TryGetValue(peer, out var player) && room.PlayerPeers.Remove(peer))
             {
+                room.ReadyPeers.Remove(peer);
                 room.Info.Players.Remove(player);
                 var remaining = room.PlayerPeers.Count;
                 Log.Information("[RoomManager] 离开房间 roomId={RoomId} userId={UserId} 剩余人数={Count}",
@@ -118,8 +130,89 @@ public class RoomManager
         return (new LeaveRoomResponse(), ReturnCode.NotInRoom);
     }
 
+    /// <summary>
+    /// 玩家准备
+    /// </summary>
+    public (GameReadyResponse Response, ReturnCode Code) SetReady(NetPeer peer)
+    {
+        foreach (var (roomId, room) in _rooms)
+        {
+            if (room.PlayerPeers.ContainsKey(peer))
+            {
+                room.ReadyPeers.Add(peer);
+                var ready = room.ReadyPeers.Count;
+                var total = room.PlayerPeers.Count;
+                var allReady = ready >= total;
+                Log.Information("[RoomManager] 玩家准备 roomId={RoomId} ready={Ready}/{Total} allReady={AllReady}",
+                    roomId, ready, total, allReady);
+                return (new GameReadyResponse { ReadyCount = ready, TotalCount = total, AllReady = allReady }, ReturnCode.Success);
+            }
+        }
+        return (new GameReadyResponse(), ReturnCode.NotInRoom);
+    }
+
+    /// <summary>
+    /// 房主开始游戏
+    /// </summary>
+    public (ReturnCode Code, GameStartNotify? Notify) StartGame(NetPeer peer)
+    {
+        foreach (var (roomId, room) in _rooms)
+        {
+            if (room.PlayerPeers.ContainsKey(peer))
+            {
+                if (room.OwnerPeer != peer)
+                {
+                    Log.Warning("[RoomManager] GameStart 失败：非房主 roomId={RoomId}", roomId);
+                    return (ReturnCode.Error, null);
+                }
+
+                if (room.ReadyPeers.Count < room.PlayerPeers.Count)
+                {
+                    Log.Warning("[RoomManager] GameStart 失败：未全部准备 roomId={RoomId} ready={Ready}/{Total}",
+                        roomId, room.ReadyPeers.Count, room.PlayerPeers.Count);
+                    return (ReturnCode.Error, null);
+                }
+
+                var gs = GameServers[room.GameServerPeer];
+
+                // 先通知 GameServer 创建游戏房间
+                Send(room.GameServerPeer, MessageIds.CreateGameRoom, ReturnCode.Success, new CreateGameRoomRequest
+                {
+                    RoomId = roomId,
+                    RoomType = room.Info.RoomType,
+                    OwnerUserId = room.Info.OwnerUserId
+                });
+
+                // 再通知所有玩家连接 GameServer
+                var notify = new GameStartNotify
+                {
+                    RoomId = roomId,
+                    GameServerAddress = gs.Address,
+                    GameServerPort = gs.Port
+                };
+
+                foreach (var p in room.PlayerPeers.Keys)
+                {
+                    Send(p, MessageIds.GameStartNotify, ReturnCode.Success, notify);
+                }
+
+                room.ReadyPeers.Clear();
+
+                Log.Information("[RoomManager] 游戏开始 roomId={RoomId} GameServer={Addr}:{Port}",
+                    roomId, gs.Address, gs.Port);
+                return (ReturnCode.Success, notify);
+            }
+        }
+        return (ReturnCode.NotInRoom, null);
+    }
+
+    /// <summary>
+    /// 获取当前所有房间列表
+    /// </summary>
     public RoomListResponse GetRoomList()
     {
+        Log.Information("[RoomManager] GetRoomList");
+
         var list = _rooms.Values.Select(r => new RoomListInfo
         {
             RoomId = r.Info.RoomId,
@@ -131,12 +224,18 @@ public class RoomManager
         return new RoomListResponse { Rooms = list };
     }
 
+    /// <summary>
+    /// 玩家断线时从所有房间中移除
+    /// </summary>
     public void RemovePlayer(NetPeer peer)
     {
+        Log.Information("[RoomManager] RemovePlayer");
+
         foreach (var (roomId, room) in _rooms.ToList())
         {
             if (room.PlayerPeers.TryGetValue(peer, out var player) && room.PlayerPeers.Remove(peer))
             {
+                room.ReadyPeers.Remove(peer);
                 room.Info.Players.Remove(player);
                 var remaining = room.PlayerPeers.Count;
                 Log.Information("[RoomManager] 断线离开房间 roomId={RoomId} userId={UserId} 剩余人数={Count}",
@@ -155,8 +254,13 @@ public class RoomManager
         }
     }
 
-    private void ReassignOwner(string roomId, GameRoom room)
+    /// <summary>
+    /// 房主离开时顺延给下一位玩家
+    /// </summary>
+    private void ReassignOwner(string roomId, LobbyRoom room)
     {
+        Log.Information("[RoomManager] ReassignOwner roomId={RoomId}", roomId);
+
         var oldOwner = room.OwnerPeer;
         room.OwnerPeer = room.PlayerPeers.Keys.FirstOrDefault();
         room.Info.OwnerUserId = room.PlayerPeers.GetValueOrDefault(room.OwnerPeer!)?.UserId ?? 0;
@@ -169,8 +273,13 @@ public class RoomManager
         }
     }
 
+    /// <summary>
+    /// 选择玩家数最少的可用 GameServer
+    /// </summary>
     private KeyValuePair<NetPeer, GameServerInfo>? PickGameServer()
     {
+        Log.Information("[RoomManager] PickGameServer");
+
         var result = GameServers
             .Where(gs => gs.Key.ConnectionState == ConnectionState.Connected)
             .MinBy(gs => gs.Value.PlayerCount);
@@ -188,6 +297,9 @@ public class RoomManager
         return result;
     }
 
+    /// <summary>
+    /// 向指定 Peer 发送序列化的消息
+    /// </summary>
     private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();

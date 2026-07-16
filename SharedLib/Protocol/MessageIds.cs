@@ -20,4 +20,14 @@ public static class MessageIds
     public const ushort LeaveRoom = 12;
     public const ushort JoinRoomNotify = 13;
     public const ushort RoomList = 14;
+
+    // 准备与开始
+    public const ushort GameReady = 20;
+    public const ushort GameStart = 21;
+    public const ushort GameStartNotify = 22;
+    public const ushort CreateGameRoom = 23;
+    // 游戏房间（GameServer 侧）
+    public const ushort JoinGame = 30;
+    public const ushort LeaveGame = 31;
+    public const ushort JoinGameNotify = 32;
 }

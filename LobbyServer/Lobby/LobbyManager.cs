@@ -35,6 +35,7 @@ public class LobbyManager
     public (JoinLobbyResponse Response, ReturnCode Code) Join(NetPeer peer, JoinLobbyRequest request)
     {
         var userId = request.Player.UserId;
+        Log.Information("[LobbyManager] Join userId={UserId}", userId);
 
         if (_users.TryGetValue(userId, out var existingPeer) && existingPeer != peer)
         {
@@ -55,6 +56,8 @@ public class LobbyManager
     /// </summary>
     public (LeaveLobbyResponse Response, ReturnCode Code) Leave(NetPeer peer, LeaveLobbyRequest request)
     {
+        Log.Information("[LobbyManager] Leave userId={UserId}", request.UserId);
+
         if (!_users.ContainsKey(request.UserId))
         {
             Log.Warning("大厅离开失败 userId={UserId} 未加入大厅", request.UserId);
@@ -74,6 +77,8 @@ public class LobbyManager
     /// </summary>
     public void Chat(NetPeer peer, ChatRequest request)
     {
+        Log.Information("[LobbyManager] Chat userId={UserId}", request.UserId);
+
         if (!_users.ContainsKey(request.UserId))
         {
             Log.Warning("聊天拒绝 userId={UserId} 未加入大厅", request.UserId);
@@ -96,6 +101,8 @@ public class LobbyManager
     /// </summary>
     public void RemoveByPeer(NetPeer peer)
     {
+        Log.Information("[LobbyManager] RemoveByPeer");
+
         var kv = _users.FirstOrDefault(kv => kv.Value == peer);
         if (kv.Value != null)
         {
