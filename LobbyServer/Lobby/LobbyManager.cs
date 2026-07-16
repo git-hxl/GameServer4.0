@@ -35,17 +35,17 @@ public class LobbyManager
     public (JoinLobbyResponse Response, ReturnCode Code) Join(NetPeer peer, JoinLobbyRequest request)
     {
         var userId = request.Player.UserId;
-        Log.Information("[LobbyManager] Join userId={UserId}", userId);
+        Log.Information("[LobbyManager] 加入大厅 userId={UserId}", userId);
 
         if (_users.TryGetValue(userId, out var existingPeer) && existingPeer != peer)
         {
             _users.TryRemove(userId, out _);
-            Log.Warning("大厅加入替换 userId={UserId} 旧连接已被顶", userId);
+            Log.Warning("[LobbyManager] 替换已有连接 userId={UserId}", userId);
         }
 
         _users[userId] = peer;
 
-        Log.Information("大厅加入 userId={UserId} nickname={Nickname} 在线人数={Count}",
+        Log.Information("[LobbyManager] 大厅加入 userId={UserId} nickname={Nickname} 在线人数={Count}",
             userId, request.Player.Nickname, _users.Count);
 
         return (new JoinLobbyResponse { Player = request.Player }, ReturnCode.Success);
@@ -56,17 +56,17 @@ public class LobbyManager
     /// </summary>
     public (LeaveLobbyResponse Response, ReturnCode Code) Leave(NetPeer peer, LeaveLobbyRequest request)
     {
-        Log.Information("[LobbyManager] Leave userId={UserId}", request.UserId);
+        Log.Information("[LobbyManager] 离开大厅 userId={UserId}", request.UserId);
 
         if (!_users.ContainsKey(request.UserId))
         {
-            Log.Warning("大厅离开失败 userId={UserId} 未加入大厅", request.UserId);
+            Log.Warning("[LobbyManager] 离开大厅失败：用户不在大厅中 userId={UserId}", request.UserId);
             return (new LeaveLobbyResponse { UserId = request.UserId }, ReturnCode.NotInLobby);
         }
 
         _users.TryRemove(request.UserId, out _);
 
-        Log.Information("大厅离开 userId={UserId} 在线人数={Count}",
+        Log.Information("[LobbyManager] 大厅离开 userId={UserId} 在线人数={Count}",
             request.UserId, _users.Count);
 
         return (new LeaveLobbyResponse { UserId = request.UserId }, ReturnCode.Success);
@@ -77,15 +77,15 @@ public class LobbyManager
     /// </summary>
     public void Chat(NetPeer peer, ChatRequest request)
     {
-        Log.Information("[LobbyManager] Chat userId={UserId}", request.UserId);
+        Log.Information("[LobbyManager] 聊天消息 userId={UserId}", request.UserId);
 
         if (!_users.ContainsKey(request.UserId))
         {
-            Log.Warning("聊天拒绝 userId={UserId} 未加入大厅", request.UserId);
+            Log.Warning("[LobbyManager] 聊天被拒绝：用户不在大厅中 userId={UserId}", request.UserId);
             return;
         }
 
-        Log.Information("聊天 userId={UserId} nickname={Nickname}: {Content}",
+        Log.Information("[LobbyManager] 聊天 userId={UserId} nickname={Nickname} content={Content}",
             request.UserId, request.Nickname, request.Content);
 
         Broadcast(MessageIds.ChatNotify, ReturnCode.Success, new ChatNotify
@@ -101,13 +101,13 @@ public class LobbyManager
     /// </summary>
     public void RemoveByPeer(NetPeer peer)
     {
-        Log.Information("[LobbyManager] RemoveByPeer");
+        Log.Information("[LobbyManager] 按Peer移除用户");
 
         var kv = _users.FirstOrDefault(kv => kv.Value == peer);
         if (kv.Value != null)
         {
             _users.TryRemove(kv.Key, out _);
-            Log.Information("用户断线清理 userId={UserId} 在线人数={Count}", kv.Key, _users.Count);
+            Log.Information("[LobbyManager] 用户断线清理 userId={UserId} 在线人数={Count}", kv.Key, _users.Count);
         }
     }
 

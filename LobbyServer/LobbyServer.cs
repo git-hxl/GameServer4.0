@@ -56,7 +56,7 @@ public class LobbyServer
         _listener.NetworkReceiveEvent += OnNetworkReceive;
 
         _netManager.Start(port);
-        Log.Information("Lobby server started on port {Port}", port);
+        Log.Information("[LobbyServer] 大厅服务器启动 port={Port}", port);
     }
 
     /// <summary>
@@ -65,7 +65,7 @@ public class LobbyServer
     public void Stop()
     {
         _netManager.Stop();
-        Log.Information("Lobby server stopped");
+        Log.Information("[LobbyServer] 大厅服务器已停止");
     }
 
     /// <summary>
@@ -89,7 +89,7 @@ public class LobbyServer
     /// </summary>
     private void OnPeerConnected(NetPeer peer)
     {
-        Log.Information("Client connected: {EndPoint}", peer.Address);
+        Log.Information("[LobbyServer] 客户端连接 endpoint={EndPoint}", peer.Address);
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public class LobbyServer
     /// </summary>
     private void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
-        Log.Information("客户端断开: {EndPoint}, 原因: {Reason}",
+        Log.Information("[LobbyServer] 客户端断开 endpoint={EndPoint} reason={Reason}",
             peer.Address, disconnectInfo.Reason);
 
         _lobbyManager.RemoveByPeer(peer);
@@ -128,6 +128,11 @@ public class LobbyServer
                         _players[peer] = joinReq.Player;
                         Send(peer, MessageIds.JoinLobby, joinLobbyCode, joinLobbyRes);
                     }
+                    else
+                    {
+                        Log.Warning("[LobbyServer] JoinLobby 反序列化失败");
+                        Send(peer, MessageIds.JoinLobby, ReturnCode.DeserializeFailed, new JoinLobbyResponse());
+                    }
                     break;
 
                 case MessageIds.LeaveLobby:
@@ -137,12 +142,19 @@ public class LobbyServer
                         var (leaveLobbyRes, leaveLobbyCode) = _lobbyManager.Leave(peer, leaveReq);
                         Send(peer, MessageIds.LeaveLobby, leaveLobbyCode, leaveLobbyRes);
                     }
+                    else
+                    {
+                        Log.Warning("[LobbyServer] LeaveLobby 反序列化失败");
+                        Send(peer, MessageIds.LeaveLobby, ReturnCode.DeserializeFailed, new LeaveLobbyResponse());
+                    }
                     break;
 
                 case MessageIds.Chat:
                     var chatReq = MessagePackSerializer.Deserialize<ChatRequest>(payload);
                     if (chatReq != null)
                         _lobbyManager.Chat(peer, chatReq);
+                    else
+                        Log.Warning("[LobbyServer] Chat 反序列化失败");
                     break;
 
                 case MessageIds.GameServerRegister:
@@ -155,20 +167,32 @@ public class LobbyServer
                         regInfo.Address = colon > 0 ? epStr[..colon] : epStr;
                         _gameServers[peer] = regInfo;
                         _gameServerHeartbeat[peer] = DateTime.UtcNow;
-                        Log.Information("GameServer 注册成功 端口={Port}", regInfo.Port);
+                        Log.Information("[LobbyServer] GameServer 注册成功 port={Port}", regInfo.Port);
+                    }
+                    else
+                    {
+                        Log.Warning("[LobbyServer] GameServerRegister 反序列化失败");
                     }
                     break;
 
                 case MessageIds.GameServerHeartbeat:
                     var hbInfo = MessagePackSerializer.Deserialize<GameServerInfo>(payload);
-                    if (hbInfo != null && _gameServers.TryGetValue(peer, out var gsInfo))
+                    if (hbInfo == null)
+                    {
+                        Log.Warning("[LobbyServer] GameServerHeartbeat 反序列化失败");
+                    }
+                    else if (!_gameServers.TryGetValue(peer, out var gsInfo))
+                    {
+                        Log.Warning("[LobbyServer] 收到未注册 GameServer 的心跳");
+                    }
+                    else
                     {
                         gsInfo.PlayerCount = hbInfo.PlayerCount;
                         gsInfo.RoomCount = hbInfo.RoomCount;
                         gsInfo.CpuPercent = hbInfo.CpuPercent;
                         gsInfo.MemoryMB = hbInfo.MemoryMB;
                         _gameServerHeartbeat[peer] = DateTime.UtcNow;
-                        Log.Information("GameServer 心跳 端口={Port} 玩家={PlayerCount} 房间={RoomCount} CPU={Cpu:F1}% 内存={Mem}MB",
+                        Log.Information("[LobbyServer] GameServer 心跳 port={Port} playerCount={PlayerCount} roomCount={RoomCount} cpu={Cpu:F1}% memory={Mem}MB",
                             hbInfo.Port, hbInfo.PlayerCount, hbInfo.RoomCount, hbInfo.CpuPercent, hbInfo.MemoryMB);
                     }
                     break;
@@ -180,6 +204,16 @@ public class LobbyServer
                         var (createRes, createCode) = _roomManager.CreateRoom(peer, createPlayer, createReq);
                         Send(peer, MessageIds.CreateRoom, createCode, createRes);
                     }
+                    else if (createReq == null)
+                    {
+                        Log.Warning("[LobbyServer] CreateRoom 反序列化失败");
+                        Send(peer, MessageIds.CreateRoom, ReturnCode.DeserializeFailed, new CreateRoomResponse());
+                    }
+                    else
+                    {
+                        Log.Warning("[LobbyServer] 创建房间失败：未找到玩家信息");
+                        Send(peer, MessageIds.CreateRoom, ReturnCode.DeserializeFailed, new CreateRoomResponse());
+                    }
                     break;
 
                 case MessageIds.JoinRoom:
@@ -188,6 +222,16 @@ public class LobbyServer
                     {
                         var (joinRoomRes, joinCode) = _roomManager.JoinRoom(peer, joinPlayer, joinRoomReq);
                         Send(peer, MessageIds.JoinRoom, joinCode, joinRoomRes);
+                    }
+                    else if (joinRoomReq == null)
+                    {
+                        Log.Warning("[LobbyServer] JoinRoom 反序列化失败");
+                        Send(peer, MessageIds.JoinRoom, ReturnCode.DeserializeFailed, new JoinRoomResponse());
+                    }
+                    else
+                    {
+                        Log.Warning("[LobbyServer] 加入房间失败：未找到玩家信息");
+                        Send(peer, MessageIds.JoinRoom, ReturnCode.NotInLobby, new JoinRoomResponse());
                     }
                     break;
 
@@ -206,19 +250,25 @@ public class LobbyServer
                     Send(peer, MessageIds.GameReady, readyCode, readyRes);
                     break;
 
+                case MessageIds.GameUnready:
+                    var (unreadyRes, unreadyCode) = _roomManager.SetUnready(peer);
+                    Send(peer, MessageIds.GameUnready, unreadyCode, unreadyRes);
+                    break;
+
                 case MessageIds.GameStart:
                     var (startCode, startNotify) = _roomManager.StartGame(peer);
                     Send(peer, MessageIds.GameStart, startCode, new GameStartResponse { Code = (int)startCode });
                     break;
 
                 default:
-                    Log.Warning("未知消息 ID: {MessageId}", messageId);
+                    Log.Warning("[LobbyServer] 未知消息ID messageId={MessageId}", messageId);
+                    Send(peer, messageId, ReturnCode.Error, new { });
                     break;
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "消息处理失败");
+            Log.Error(ex, "[LobbyServer] 消息处理异常");
         }
         finally
         {

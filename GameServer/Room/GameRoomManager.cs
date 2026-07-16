@@ -12,6 +12,9 @@ public class GameRoomManager
     private readonly NetManager _netManager;
     private readonly Dictionary<string, GameRoom> _rooms = new();
 
+    public int PlayerCount => _rooms.Values.Sum(r => r.Players.Count);
+    public int RoomCount => _rooms.Count;
+
     public GameRoomManager(NetManager netManager)
     {
         _netManager = netManager;
@@ -34,8 +37,15 @@ public class GameRoomManager
     {
         if (!_rooms.TryGetValue(request.RoomId, out var room))
         {
-            Log.Warning("[GameRoomManager] 加入失败 roomId={RoomId} 不存在", request.RoomId);
+            Log.Warning("[GameRoomManager] 加入游戏失败：房间未找到 roomId={RoomId}", request.RoomId);
             return (new JoinGameResponse(), ReturnCode.RoomNotFound);
+        }
+
+        if (room.Players.ContainsKey(peer))
+        {
+            Log.Warning("[GameRoomManager] 加入游戏失败：已在房间中 userId={UserId} roomId={RoomId}",
+                request.Player.UserId, request.RoomId);
+            return (new JoinGameResponse(), ReturnCode.AlreadyInRoom);
         }
 
         var player = request.Player;

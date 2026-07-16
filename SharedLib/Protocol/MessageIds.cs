@@ -23,9 +23,10 @@ public static class MessageIds
 
     // 准备与开始
     public const ushort GameReady = 20;
-    public const ushort GameStart = 21;
-    public const ushort GameStartNotify = 22;
-    public const ushort CreateGameRoom = 23;
+    public const ushort GameUnready = 21;
+    public const ushort GameStart = 22;
+    public const ushort GameStartNotify = 23;
+    public const ushort CreateGameRoom = 24;
     // 游戏房间（GameServer 侧）
     public const ushort JoinGame = 30;
     public const ushort LeaveGame = 31;

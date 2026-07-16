@@ -86,7 +86,7 @@ public class GameServer
         _heartbeatCts = new CancellationTokenSource();
         _ = HeartbeatLoop(_heartbeatCts.Token);
 
-        Log.Information("GameServer 启动 端口 {Port}, 连接 Lobby {Addr}:{LobbyPort}",
+        Log.Information("[GameServer] 启动 port={Port} lobbyAddress={Addr}:{LobbyPort}",
             _serverPort, _lobbyAddress, _lobbyPort);
     }
 
@@ -100,7 +100,7 @@ public class GameServer
             _lobbyClient.DisconnectPeer(_lobbyPeer);
         _lobbyClient.Stop();
         _netManager.Stop();
-        Log.Information("GameServer 已停止");
+        Log.Information("[GameServer] 已停止");
     }
 
     /// <summary>
@@ -127,7 +127,7 @@ public class GameServer
     /// </summary>
     private void OnPeerConnected(NetPeer peer)
     {
-        Log.Information("游戏客户端连接: {EndPoint}", peer.Address);
+        Log.Information("[GameServer] 游戏客户端连接 endpoint={EndPoint}", peer.Address);
     }
 
     /// <summary>
@@ -135,7 +135,7 @@ public class GameServer
     /// </summary>
     private void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
-        Log.Information("游戏客户端断开: {EndPoint}, 原因: {Reason}",
+        Log.Information("[GameServer] 游戏客户端断开 endpoint={EndPoint} reason={Reason}",
             peer.Address, disconnectInfo.Reason);
         _roomManager.RemovePlayer(peer);
     }
@@ -160,6 +160,11 @@ public class GameServer
                         var (joinRes, joinCode) = _roomManager.JoinGame(peer, joinReq);
                         Send(peer, MessageIds.JoinGame, joinCode, joinRes);
                     }
+                    else
+                    {
+                        Log.Warning("[GameServer] JoinGame 反序列化失败");
+                        Send(peer, MessageIds.JoinGame, ReturnCode.DeserializeFailed, new JoinGameResponse());
+                    }
                     break;
 
                 case MessageIds.LeaveGame:
@@ -168,13 +173,14 @@ public class GameServer
                     break;
 
                 default:
-                    Log.Information("游戏客户端消息 ID={MessageId} {ByteCount} 字节", messageId, reader.AvailableBytes);
+                    Log.Warning("[GameServer] 未知游戏客户端消息ID messageId={MessageId}", messageId);
+                    Send(peer, messageId, ReturnCode.Error, new { });
                     break;
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "处理游戏客户端消息失败");
+            Log.Error(ex, "[GameServer] 游戏客户端消息处理异常");
         }
         finally
         {
@@ -190,7 +196,7 @@ public class GameServer
     private void OnLobbyConnected(NetPeer peer)
     {
         _lobbyPeer = peer;
-        Log.Information("已连接到 LobbyServer");
+        Log.Information("[GameServer] 已连接到LobbyServer");
 
         var writer = new NetDataWriter();
         writer.Put(MessageIds.GameServerRegister);
@@ -202,7 +208,7 @@ public class GameServer
             RoomCount = 0
         }));
         peer.Send(writer, DeliveryMethod.ReliableOrdered);
-        Log.Information("已向 LobbyServer 发送注册");
+        Log.Information("[GameServer] 已向LobbyServer发送注册");
     }
 
     /// <summary>
@@ -211,7 +217,7 @@ public class GameServer
     private void OnLobbyDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
     {
         _lobbyPeer = null;
-        Log.Warning("与 LobbyServer 断开: {Reason}", disconnectInfo.Reason);
+        Log.Warning("[GameServer] 断开LobbyServer连接 reason={Reason}", disconnectInfo.Reason);
     }
 
     /// <summary>
@@ -233,12 +239,16 @@ public class GameServer
                     {
                         _roomManager.CreateRoom(roomReq);
                     }
+                    else
+                    {
+                        Log.Warning("[GameServer] CreateGameRoom 反序列化失败");
+                    }
                     break;
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "处理 LobbyServer 消息失败");
+            Log.Error(ex, "[GameServer] LobbyServer消息处理异常");
         }
         finally
         {
@@ -284,8 +294,8 @@ public class GameServer
         writer.Put(MessagePackSerializer.Serialize(new GameServerInfo
         {
             Port = _serverPort,
-            PlayerCount = 0,
-            RoomCount = 0,
+            PlayerCount = _roomManager.PlayerCount,
+            RoomCount = _roomManager.RoomCount,
             CpuPercent = _perf.CpuPercent,
             MemoryMB = _perf.MemoryMB
         }));

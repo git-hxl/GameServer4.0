@@ -25,12 +25,12 @@ public class RoomManager
     /// </summary>
     public (CreateRoomResponse Response, ReturnCode Code) CreateRoom(NetPeer peer, PlayerInfo player, CreateRoomRequest request)
     {
-        Log.Information("[RoomManager] CreateRoom userId={UserId} roomId={RoomId}", player.UserId, request.RoomId);
+        Log.Information("[RoomManager] 创建房间 userId={UserId} roomId={RoomId}", player.UserId, request.RoomId);
 
         var gs = PickGameServer();
         if (gs == null)
         {
-            Log.Warning("[RoomManager] CreateRoom 失败：无可用 GameServer userId={UserId}", player.UserId);
+            Log.Warning("[RoomManager] 创建房间失败：无可用GameServer userId={UserId}", player.UserId);
             return (new CreateRoomResponse(), ReturnCode.NoGameServerAvailable);
         }
 
@@ -63,17 +63,17 @@ public class RoomManager
     /// </summary>
     public (JoinRoomResponse Response, ReturnCode Code) JoinRoom(NetPeer peer, PlayerInfo player, JoinRoomRequest request)
     {
-        Log.Information("[RoomManager] JoinRoom userId={UserId} roomId={RoomId}", player.UserId, request.RoomId);
+        Log.Information("[RoomManager] 加入房间 userId={UserId} roomId={RoomId}", player.UserId, request.RoomId);
 
         if (!_rooms.TryGetValue(request.RoomId, out var room))
         {
-            Log.Warning("[RoomManager] JoinRoom 失败：房间不存在 roomId={RoomId} userId={UserId}", request.RoomId, player.UserId);
+            Log.Warning("[RoomManager] 加入房间失败：房间未找到 roomId={RoomId} userId={UserId}", request.RoomId, player.UserId);
             return (new JoinRoomResponse { Room = new RoomInfo { RoomId = request.RoomId } }, ReturnCode.RoomNotFound);
         }
 
         if (room.PlayerPeers.ContainsKey(peer))
         {
-            Log.Warning("[RoomManager] JoinRoom 失败：已在房间 roomId={RoomId} userId={UserId}", request.RoomId, player.UserId);
+            Log.Warning("[RoomManager] 加入房间失败：已在房间中 roomId={RoomId} userId={UserId}", request.RoomId, player.UserId);
             return (new JoinRoomResponse { Room = new RoomInfo { RoomId = request.RoomId } }, ReturnCode.AlreadyInRoom);
         }
 
@@ -101,7 +101,7 @@ public class RoomManager
     /// </summary>
     public (LeaveRoomResponse Response, ReturnCode Code) LeaveRoom(NetPeer peer)
     {
-        Log.Information("[RoomManager] LeaveRoom");
+        Log.Information("[RoomManager] 离开房间");
 
         foreach (var (roomId, room) in _rooms)
         {
@@ -126,7 +126,7 @@ public class RoomManager
                 return (new LeaveRoomResponse { RoomId = roomId }, ReturnCode.Success);
             }
         }
-        Log.Warning("[RoomManager] LeaveRoom 失败：不在任何房间");
+        Log.Warning("[RoomManager] 离开房间失败：玩家不在任何房间中");
         return (new LeaveRoomResponse(), ReturnCode.NotInRoom);
     }
 
@@ -152,6 +152,26 @@ public class RoomManager
     }
 
     /// <summary>
+    /// 玩家取消准备
+    /// </summary>
+    public (GameUnreadyResponse Response, ReturnCode Code) SetUnready(NetPeer peer)
+    {
+        foreach (var (roomId, room) in _rooms)
+        {
+            if (room.PlayerPeers.ContainsKey(peer))
+            {
+                room.ReadyPeers.Remove(peer);
+                var ready = room.ReadyPeers.Count;
+                var total = room.PlayerPeers.Count;
+                Log.Information("[RoomManager] 玩家取消准备 roomId={RoomId} ready={Ready}/{Total}",
+                    roomId, ready, total);
+                return (new GameUnreadyResponse { ReadyCount = ready, TotalCount = total }, ReturnCode.Success);
+            }
+        }
+        return (new GameUnreadyResponse(), ReturnCode.NotInRoom);
+    }
+
+    /// <summary>
     /// 房主开始游戏
     /// </summary>
     public (ReturnCode Code, GameStartNotify? Notify) StartGame(NetPeer peer)
@@ -162,15 +182,15 @@ public class RoomManager
             {
                 if (room.OwnerPeer != peer)
                 {
-                    Log.Warning("[RoomManager] GameStart 失败：非房主 roomId={RoomId}", roomId);
-                    return (ReturnCode.Error, null);
+                    Log.Warning("[RoomManager] 开始游戏失败：不是房主 roomId={RoomId}", roomId);
+                    return (ReturnCode.NotRoomOwner, null);
                 }
 
                 if (room.ReadyPeers.Count < room.PlayerPeers.Count)
                 {
-                    Log.Warning("[RoomManager] GameStart 失败：未全部准备 roomId={RoomId} ready={Ready}/{Total}",
+                    Log.Warning("[RoomManager] 开始游戏失败：玩家未全部准备 roomId={RoomId} ready={Ready}/{Total}",
                         roomId, room.ReadyPeers.Count, room.PlayerPeers.Count);
-                    return (ReturnCode.Error, null);
+                    return (ReturnCode.NotAllReady, null);
                 }
 
                 var gs = GameServers[room.GameServerPeer];
@@ -211,7 +231,7 @@ public class RoomManager
     /// </summary>
     public RoomListResponse GetRoomList()
     {
-        Log.Information("[RoomManager] GetRoomList");
+        Log.Information("[RoomManager] 获取房间列表");
 
         var list = _rooms.Values.Select(r => new RoomListInfo
         {
@@ -229,7 +249,7 @@ public class RoomManager
     /// </summary>
     public void RemovePlayer(NetPeer peer)
     {
-        Log.Information("[RoomManager] RemovePlayer");
+        Log.Information("[RoomManager] 移除玩家");
 
         foreach (var (roomId, room) in _rooms.ToList())
         {
@@ -259,7 +279,7 @@ public class RoomManager
     /// </summary>
     private void ReassignOwner(string roomId, LobbyRoom room)
     {
-        Log.Information("[RoomManager] ReassignOwner roomId={RoomId}", roomId);
+        Log.Information("[RoomManager] 重新分配房主 roomId={RoomId}", roomId);
 
         var oldOwner = room.OwnerPeer;
         room.OwnerPeer = room.PlayerPeers.Keys.FirstOrDefault();
@@ -278,7 +298,7 @@ public class RoomManager
     /// </summary>
     private KeyValuePair<NetPeer, GameServerInfo>? PickGameServer()
     {
-        Log.Information("[RoomManager] PickGameServer");
+        Log.Information("[RoomManager] 选择GameServer");
 
         var result = GameServers
             .Where(gs => gs.Key.ConnectionState == ConnectionState.Connected)
@@ -291,7 +311,7 @@ public class RoomManager
         }
         else
         {
-            Log.Warning("[RoomManager] 无可用的 GameServer");
+            Log.Warning("[RoomManager] 选择GameServer失败：无可用GameServer");
         }
 
         return result;

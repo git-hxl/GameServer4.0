@@ -8,5 +8,9 @@ public enum ReturnCode : byte
     AlreadyInRoom = 3,
     NoGameServerAvailable = 4,
     NotInLobby = 5,
-    NotInRoom = 6
+    NotInRoom = 6,
+    NotRoomOwner = 7,
+    NotAllReady = 8,
+    DeserializeFailed = 9,
 }
+
