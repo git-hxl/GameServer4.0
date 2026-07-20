@@ -32,5 +32,7 @@ public static class MessageIds
     public const ushort LeaveGame = 31;
     public const ushort JoinGameNotify = 32;
     // 同步
-    public const ushort PlayerSync = 40;
+    public const ushort EntitySync = 40;
+    public const ushort ObjectSpawn = 41;
+    public const ushort ObjectDespawn = 42;
 }

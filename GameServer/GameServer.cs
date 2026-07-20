@@ -172,13 +172,33 @@ public class GameServer
                     Send(peer, MessageIds.LeaveGame, leaveCode, new { RoomId = leaveRoomId ?? "" });
                     break;
 
-                case MessageIds.PlayerSync:
-                    var syncData = MessagePackSerializer.Deserialize<PlayerSyncData>(payload);
+                case MessageIds.EntitySync:
+                    var syncData = MessagePackSerializer.Deserialize<EntitySyncData>(payload);
                     if (syncData != null)
                     {
-                        var roomId = _roomManager.GetRoomId(peer);
-                        if (roomId != null)
-                            _roomManager.BroadcastToRoom(roomId, peer, MessageIds.PlayerSync, syncData);
+                        var syncRoomId = _roomManager.GetRoomId(peer);
+                        if (syncRoomId != null)
+                            _roomManager.BroadcastToRoom(syncRoomId, peer, MessageIds.EntitySync, syncData);
+                    }
+                    break;
+
+                case MessageIds.ObjectSpawn:
+                    var spawnData = MessagePackSerializer.Deserialize<ObjectSpawnData>(payload);
+                    if (spawnData != null)
+                    {
+                        var spawnRoomId = _roomManager.GetRoomId(peer);
+                        if (spawnRoomId != null)
+                            _roomManager.BroadcastToRoom(spawnRoomId, peer, MessageIds.ObjectSpawn, spawnData);
+                    }
+                    break;
+
+                case MessageIds.ObjectDespawn:
+                    var despawnData = MessagePackSerializer.Deserialize<ObjectDespawnData>(payload);
+                    if (despawnData != null)
+                    {
+                        var despawnRoomId = _roomManager.GetRoomId(peer);
+                        if (despawnRoomId != null)
+                            _roomManager.BroadcastToRoom(despawnRoomId, peer, MessageIds.ObjectDespawn, despawnData);
                     }
                     break;
 
