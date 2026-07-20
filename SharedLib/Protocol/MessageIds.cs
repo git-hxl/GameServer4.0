@@ -31,4 +31,6 @@ public static class MessageIds
     public const ushort JoinGame = 30;
     public const ushort LeaveGame = 31;
     public const ushort JoinGameNotify = 32;
+    // 同步
+    public const ushort PlayerSync = 40;
 }

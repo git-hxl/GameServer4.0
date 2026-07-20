@@ -105,6 +105,26 @@ public class GameRoomManager
         }
     }
 
+    public void BroadcastToRoom(string roomId, NetPeer sender, ushort messageId, object data)
+    {
+        if (!_rooms.TryGetValue(roomId, out var room)) return;
+
+        foreach (var otherPeer in room.Players.Keys.Where(p => p != sender))
+        {
+            Send(otherPeer, messageId, ReturnCode.Success, data);
+        }
+    }
+
+    public string? GetRoomId(NetPeer peer)
+    {
+        foreach (var (roomId, room) in _rooms)
+        {
+            if (room.Players.ContainsKey(peer))
+                return roomId;
+        }
+        return null;
+    }
+
     private void Send(NetPeer peer, ushort messageId, ReturnCode code, object data)
     {
         var writer = new NetDataWriter();

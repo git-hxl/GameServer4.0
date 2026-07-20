@@ -172,6 +172,16 @@ public class GameServer
                     Send(peer, MessageIds.LeaveGame, leaveCode, new { RoomId = leaveRoomId ?? "" });
                     break;
 
+                case MessageIds.PlayerSync:
+                    var syncData = MessagePackSerializer.Deserialize<PlayerSyncData>(payload);
+                    if (syncData != null)
+                    {
+                        var roomId = _roomManager.GetRoomId(peer);
+                        if (roomId != null)
+                            _roomManager.BroadcastToRoom(roomId, peer, MessageIds.PlayerSync, syncData);
+                    }
+                    break;
+
                 default:
                     Log.Warning("[GameServer] 未知游戏客户端消息ID messageId={MessageId}", messageId);
                     Send(peer, messageId, ReturnCode.Error, new { });
