@@ -1,6 +1,8 @@
-namespace SharedLib.Models;
-
-public enum RoomType
+namespace SharedLib.Models
 {
-    Default = 0,
+
+    public enum RoomType
+    {
+        Default = 0,
+    }
 }

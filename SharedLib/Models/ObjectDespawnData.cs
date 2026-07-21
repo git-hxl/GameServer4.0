@@ -1,9 +1,11 @@
 using MessagePack;
 
-namespace SharedLib.Models;
-
-[MessagePackObject]
-public class ObjectDespawnData
+namespace SharedLib.Models
 {
-    [Key(0)] public long ObjectId { get; set; }
+
+    [MessagePackObject]
+    public class ObjectDespawnData
+    {
+        [Key(0)] public long ObjectId { get; set; }
+    }
 }

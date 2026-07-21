@@ -1,8 +1,10 @@
 using MessagePack;
 
-namespace SharedLib.Models;
-
-[MessagePackObject]
-public class GameStartRequest
+namespace SharedLib.Models
 {
+
+    [MessagePackObject]
+    public class GameStartRequest
+    {
+    }
 }
