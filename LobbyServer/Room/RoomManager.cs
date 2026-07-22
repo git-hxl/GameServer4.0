@@ -36,6 +36,12 @@ public class RoomManager
 
         var gsValue = gs.Value;
         var roomId = request.RoomId ?? Guid.NewGuid().ToString("N")[..8];
+
+        if (_rooms.ContainsKey(roomId))
+        {
+            Log.Warning("[RoomManager] 创建房间失败：房间已存在 roomId={RoomId}", roomId);
+            return (new CreateRoomResponse(), ReturnCode.Error);
+        }
         var room = new LobbyRoom
         {
             Info = new RoomInfo

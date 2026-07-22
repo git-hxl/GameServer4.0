@@ -65,7 +65,8 @@ public class GameRoomManager
         {
             RoomId = request.RoomId,
             RoomType = room.RoomType,
-            OwnerUserId = room.OwnerUserId
+            OwnerUserId = room.OwnerUserId,
+            Players = room.Players.Values.ToList()
         }, ReturnCode.Success);
     }
 
