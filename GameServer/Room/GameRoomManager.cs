@@ -74,10 +74,17 @@ public class GameRoomManager
     {
         foreach (var (roomId, room) in _rooms)
         {
-            if (room.Players.Remove(peer))
+            if (room.Players.TryGetValue(peer, out var player) && room.Players.Remove(peer))
             {
                 Log.Information("[GameRoomManager] 玩家离开游戏房间 roomId={RoomId} 剩余人数={Count}",
                     roomId, room.Players.Count);
+
+                var notify = new LeaveGameNotify { UserId = player.UserId };
+                foreach (var otherPeer in room.Players.Keys)
+                {
+                    Send(otherPeer, MessageIds.LeaveGameNotify, ReturnCode.Success, notify);
+                }
+
                 if (room.Players.Count == 0)
                 {
                     _rooms.Remove(roomId);
@@ -93,10 +100,17 @@ public class GameRoomManager
     {
         foreach (var (roomId, room) in _rooms)
         {
-            if (room.Players.Remove(peer))
+            if (room.Players.TryGetValue(peer, out var player) && room.Players.Remove(peer))
             {
                 Log.Information("[GameRoomManager] 玩家断线离开游戏房间 roomId={RoomId} 剩余人数={Count}",
                     roomId, room.Players.Count);
+
+                var notify = new LeaveGameNotify { UserId = player.UserId };
+                foreach (var otherPeer in room.Players.Keys)
+                {
+                    Send(otherPeer, MessageIds.LeaveGameNotify, ReturnCode.Success, notify);
+                }
+
                 if (room.Players.Count == 0)
                 {
                     _rooms.Remove(roomId);

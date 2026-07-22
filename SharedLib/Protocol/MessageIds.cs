@@ -1,6 +1,5 @@
 namespace SharedLib.Protocol
 {
-
     /// <summary>
     /// 消息 ID 常量
     /// </summary>
@@ -20,7 +19,8 @@ namespace SharedLib.Protocol
         public const ushort JoinRoom = 11;
         public const ushort LeaveRoom = 12;
         public const ushort JoinRoomNotify = 13;
-        public const ushort RoomList = 14;
+        public const ushort LeaveRoomNotify = 14;
+        public const ushort RoomList = 15;
 
         // 准备与开始
         public const ushort GameReady = 20;
@@ -28,10 +28,13 @@ namespace SharedLib.Protocol
         public const ushort GameStart = 22;
         public const ushort GameStartNotify = 23;
         public const ushort CreateGameRoom = 24;
+
         // 游戏房间（GameServer 侧）
         public const ushort JoinGame = 30;
         public const ushort LeaveGame = 31;
         public const ushort JoinGameNotify = 32;
+        public const ushort LeaveGameNotify = 33;
+
         // 同步
         public const ushort EntitySync = 40;
         public const ushort ObjectSpawn = 41;

@@ -127,6 +127,11 @@ public class RoomManager
                 else
                 {
                     ReassignOwner(roomId, room);
+                    var leaveNotify = new LeaveRoomNotify { RoomId = roomId, UserId = player.UserId };
+                    foreach (var otherPeer in room.PlayerPeers.Keys)
+                    {
+                        Send(otherPeer, MessageIds.LeaveRoomNotify, ReturnCode.Success, leaveNotify);
+                    }
                 }
 
                 return (new LeaveRoomResponse { RoomId = roomId }, ReturnCode.Success);
@@ -275,6 +280,11 @@ public class RoomManager
                 else
                 {
                     ReassignOwner(roomId, room);
+                    var leaveNotify = new LeaveRoomNotify { RoomId = roomId, UserId = player.UserId };
+                    foreach (var otherPeer in room.PlayerPeers.Keys)
+                    {
+                        Send(otherPeer, MessageIds.LeaveRoomNotify, ReturnCode.Success, leaveNotify);
+                    }
                 }
             }
         }
