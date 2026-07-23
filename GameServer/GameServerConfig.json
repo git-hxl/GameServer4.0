@@ -1,7 +1,7 @@
 {
-  "Port": 9051,
+  "Port": 7001,
   "LobbyAddress": "127.0.0.1",
-  "LobbyPort": 9050,
+  "LobbyPort": 6001,
   "ConnectionKey": "Game@wasd9527",
   "UpdateTime": 15,
   "PingInterval": 1000,

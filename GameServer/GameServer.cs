@@ -48,7 +48,7 @@ public class GameServer
             UpdateTime = config.UpdateTime,
             PingInterval = config.PingInterval,
             DisconnectTimeout = config.DisconnectTimeout,
-            ChannelsCount = config.ChannelsCount
+            ChannelsCount = config.ChannelsCount,
         };
 
         _lobbyListener = new EventBasedNetListener();
@@ -165,20 +165,30 @@ public class GameServer
                         Log.Warning("[GameServer] JoinGame 反序列化失败");
                         Send(peer, MessageIds.JoinGame, ReturnCode.DeserializeFailed, new JoinGameResponse());
                     }
-                    break;
+                    break; 
 
                 case MessageIds.LeaveGame:
                     var (leaveCode, leaveRoomId) = _roomManager.LeaveGame(peer);
                     Send(peer, MessageIds.LeaveGame, leaveCode, new { RoomId = leaveRoomId ?? "" });
                     break;
 
-                case MessageIds.EntitySync:
-                    var syncData = MessagePackSerializer.Deserialize<EntitySyncData>(payload);
-                    if (syncData != null)
+                case MessageIds.PositionSync:
+                    var posData = MessagePackSerializer.Deserialize<PositionSyncData>(payload);
+                    if (posData != null)
                     {
-                        var syncRoomId = _roomManager.GetRoomId(peer);
-                        if (syncRoomId != null)
-                            _roomManager.BroadcastToRoom(syncRoomId, peer, MessageIds.EntitySync, syncData);
+                        var posRoomId = _roomManager.GetRoomId(peer);
+                        if (posRoomId != null)
+                            _roomManager.BroadcastToRoom(posRoomId, peer, MessageIds.PositionSync, posData);
+                    }
+                    break;
+
+                case MessageIds.AnimationSync:
+                    var animData = MessagePackSerializer.Deserialize<AnimationSyncData>(payload);
+                    if (animData != null)
+                    {
+                        var animRoomId = _roomManager.GetRoomId(peer);
+                        if (animRoomId != null)
+                            _roomManager.BroadcastToRoom(animRoomId, peer, MessageIds.AnimationSync, animData);
                     }
                     break;
 
